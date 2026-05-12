@@ -622,7 +622,10 @@ export function startServer(options: StartServerOptions = {}) {
 
   io.on('connection', (socket) => {
     if (!options.silent) {
-      console.log('Client connected:', socket.id);
+      console.log('Client connected:', socket.id, {
+        origin: socket.handshake.headers.origin ?? 'unknown',
+        transport: socket.conn.transport.name
+      });
     }
 
     socket.on('create-room', ({ roomName, playerName, clientId }: CreateRoomPayload) => {
@@ -869,11 +872,11 @@ export function startServer(options: StartServerOptions = {}) {
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       const room = findRoomBySocketId(socket.id);
       const playerId = socketToPlayerId.get(socket.id);
       if (!options.silent) {
-        console.log('Client disconnected:', socket.id);
+        console.log('Client disconnected:', socket.id, { reason });
       }
 
       if (!room) {

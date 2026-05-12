@@ -828,6 +828,7 @@ const App: React.FC = () => {
   });
   const languageRef = useRef<Language>(language);
   const clientIdRef = useRef<string>(getClientId());
+  const activeSocketRef = useRef<Socket | null>(null);
 
   const copy = UI_COPY[language];
   const tokenLabels = useMemo(
@@ -856,8 +857,14 @@ const App: React.FC = () => {
   }, [playerName]);
 
   useEffect(() => {
-    const nextSocket = io(getServerUrl());
+    const nextSocket = io(getServerUrl(), {
+      transports: ['websocket', 'polling'],
+      rememberUpgrade: true,
+      timeout: 10000
+    });
+    activeSocketRef.current = nextSocket;
     setSocket(nextSocket);
+    const isCurrentSocket = () => activeSocketRef.current === nextSocket;
 
     const clearLocalRoomState = () => {
       window.localStorage.removeItem(ROOM_ID_STORAGE_KEY);
@@ -872,6 +879,10 @@ const App: React.FC = () => {
     };
 
     nextSocket.on('connect', () => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setConnected(true);
       setNotice({
         tone: 'success',
@@ -887,15 +898,41 @@ const App: React.FC = () => {
       }
     });
 
-    nextSocket.on('disconnect', () => {
+    nextSocket.on('disconnect', (reason) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setConnected(false);
       setNotice({
         tone: 'error',
-        message: UI_COPY[languageRef.current].disconnectedNotice
+        message:
+          languageRef.current === 'zh-CN'
+            ? `${UI_COPY[languageRef.current].disconnectedNotice}（${reason}）`
+            : `${UI_COPY[languageRef.current].disconnectedNotice} (${reason})`
+      });
+    });
+
+    nextSocket.on('connect_error', (error) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
+      setConnected(false);
+      setNotice({
+        tone: 'error',
+        message:
+          languageRef.current === 'zh-CN'
+            ? `无法连接到主机服务器：${error.message}`
+            : `Could not connect to the host server: ${error.message}`
       });
     });
 
     nextSocket.on('room-created', (id: string) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setRoomId(id);
       setNotice({
         tone: 'success',
@@ -904,6 +941,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('room-joined', ({ room, player }: RoomJoinedPayload) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setCurrentRoom(room);
       setGameState(room.gameState);
       setLocalPlayerId(player.id);
@@ -920,6 +961,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('session-resumed', ({ room, playerId }: SessionResumedPayload) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setCurrentRoom(room);
       setGameState(room.gameState);
       setLocalPlayerId(playerId);
@@ -940,6 +985,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('session-resume-failed', () => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       clearLocalRoomState();
       setNotice({
         tone: 'info',
@@ -951,6 +1000,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('room-left', () => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       clearLocalRoomState();
       setNotice({
         tone: 'info',
@@ -959,6 +1012,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('room-closed', (_payload: RoomClosedPayload) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       clearLocalRoomState();
       setNotice({
         tone: 'info',
@@ -967,12 +1024,20 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('room-updated', (room: Room) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setCurrentRoom(room);
       setGameState(room.gameState);
       setGameStarted(room.status === 'in_game' || room.status === 'closed' || !!room.gameState);
     });
 
     nextSocket.on('game-state-updated', (state: GameState) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setGameState(state);
       setGameStarted(true);
       setPendingReturnAction(null);
@@ -980,6 +1045,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('player-joined', (player: { name: string }) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setNotice({
         tone: 'info',
         message: UI_COPY[languageRef.current].playerJoined(player.name)
@@ -987,6 +1056,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('join-error', (message: string) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setNotice({
         tone: 'error',
         message
@@ -994,6 +1067,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('game-started', (state: GameState) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setGameStarted(true);
       setGameState(state);
       setNotice({
@@ -1003,6 +1080,10 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('game-error', (message: string) => {
+      if (!isCurrentSocket()) {
+        return;
+      }
+
       setNotice({
         tone: 'error',
         message
@@ -1010,6 +1091,9 @@ const App: React.FC = () => {
     });
 
     return () => {
+      if (activeSocketRef.current === nextSocket) {
+        activeSocketRef.current = null;
+      }
       nextSocket.disconnect();
     };
   }, []);
