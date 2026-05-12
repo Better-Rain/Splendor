@@ -125,6 +125,7 @@ Current UI is too saturated and generic. The target style is:
 
 ### Tooling And Packaging
 
+- Keep dev startup resilient against stale local server processes and port conflicts.
 - Add a production smoke check for the built Electron renderer.
 - Tighten package metadata, icon handling, and installer output naming.
 
@@ -153,6 +154,7 @@ Current UI is too saturated and generic. The target style is:
 - [x] Improve in-game player panels with clearer token, bonus, reserve, and noble breakdowns.
 - [x] Add clearer action-log presentation with localized action categories and important turn events.
 - [x] Add focused in-game view switching with subtle transition animation.
+- [x] Add development port cleanup for stale local Vite and host-server processes.
 
 ## Notes On Card Data
 
