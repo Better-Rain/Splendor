@@ -115,7 +115,7 @@ Current UI is too saturated and generic. The target style is:
 
 ### Gameplay Polish
 
-- Add end-of-game summary details: final scores, purchased-card tie breaker, and shared winners.
+- Improve in-game player panels with clearer token, bonus, reserve, and noble breakdowns.
 
 ### LAN Reliability
 
@@ -150,10 +150,11 @@ Current UI is too saturated and generic. The target style is:
 - [x] Add manual leave-room and host close-room controls.
 - [x] Let the active player choose between multiple eligible nobles.
 - [x] Add clearer card readability with localized cost badges and affordability hints.
+- [x] Add end-of-game summary details: final scores, purchased-card tie breaker, and shared winners.
 
 ## Notes On Card Data
 
-The repository now includes the full base-game development deck and noble tiles in `src/shared/baseSet.ts`. The verification script checks card counts, point distribution, a stable base-set hash, setup rules, core actions, multiple-noble choice, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot recovery.
+The repository now includes the full base-game development deck and noble tiles in `src/shared/baseSet.ts`. The verification script checks card counts, point distribution, a stable base-set hash, setup rules, core actions, winner tie breakers, multiple-noble choice, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot recovery.
 
 Official noble clarification: the base rules do not allow taking multiple nobles in a single turn. If several nobles are eligible, the current player chooses one visitor.
 

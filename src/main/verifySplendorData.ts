@@ -411,6 +411,54 @@ function verifyNobleClaimAndFinalRound() {
   assert.deepEqual(state.winnerIds, [activePlayer.id]);
 }
 
+function verifyWinnerTieBreakerAndSharedWinners() {
+  const tieBreakerState = initializeGame(createRoom(3));
+
+  tieBreakerState.phase = 'last_round';
+  tieBreakerState.finalRoundStartsAtPlayerId = tieBreakerState.players[0].id;
+  tieBreakerState.currentPlayerIndex = 2;
+  tieBreakerState.players[0].points = 15;
+  tieBreakerState.players[0].purchasedCards = BASE_LEVEL_1_CARDS.slice(0, 5);
+  tieBreakerState.players[1].points = 15;
+  tieBreakerState.players[1].purchasedCards = BASE_LEVEL_1_CARDS.slice(0, 4);
+  tieBreakerState.players[2].points = 14;
+
+  applyGameAction(tieBreakerState, tieBreakerState.players[2].id, {
+    type: 'take_three_distinct_tokens',
+    colors: ['diamond']
+  });
+
+  assert.equal(tieBreakerState.phase, 'finished');
+  assert.deepEqual(
+    tieBreakerState.winnerIds,
+    [tieBreakerState.players[1].id],
+    'A tied player with fewer purchased cards should win.'
+  );
+
+  const sharedWinnerState = initializeGame(createRoom(3));
+
+  sharedWinnerState.phase = 'last_round';
+  sharedWinnerState.finalRoundStartsAtPlayerId = sharedWinnerState.players[0].id;
+  sharedWinnerState.currentPlayerIndex = 2;
+  sharedWinnerState.players[0].points = 15;
+  sharedWinnerState.players[0].purchasedCards = BASE_LEVEL_1_CARDS.slice(0, 4);
+  sharedWinnerState.players[1].points = 15;
+  sharedWinnerState.players[1].purchasedCards = BASE_LEVEL_1_CARDS.slice(4, 8);
+  sharedWinnerState.players[2].points = 12;
+
+  applyGameAction(sharedWinnerState, sharedWinnerState.players[2].id, {
+    type: 'take_three_distinct_tokens',
+    colors: ['diamond']
+  });
+
+  assert.equal(sharedWinnerState.phase, 'finished');
+  assert.deepEqual(
+    sharedWinnerState.winnerIds,
+    [sharedWinnerState.players[0].id, sharedWinnerState.players[1].id],
+    'Players tied on score and purchased-card count should share the win.'
+  );
+}
+
 function verifyMultipleNobleChoice() {
   const state = initializeGame(createRoom(2));
   const activePlayer = state.players[0];
@@ -774,6 +822,7 @@ async function main() {
   verifyPurchaseCardAction();
   verifyInvalidActionDoesNotMutateState();
   verifyNobleClaimAndFinalRound();
+  verifyWinnerTieBreakerAndSharedWinners();
   verifyMultipleNobleChoice();
   await verifyLobbySessionResume();
   await verifyRoomLifecycleControls();
@@ -781,7 +830,7 @@ async function main() {
 
   console.log('Splendor base data verified.');
   console.log(
-    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, multiple-noble choice, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot restore.'
+    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, winner tie breakers, multiple-noble choice, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot restore.'
   );
 }
 

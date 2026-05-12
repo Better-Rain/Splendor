@@ -63,6 +63,12 @@ interface CardCostBreakdown {
 
 type TokenLabelMap = Record<GemColor, string>;
 
+interface FinalStanding {
+  player: GamePlayer;
+  rank: number;
+  isWinner: boolean;
+}
+
 const CLIENT_ID_STORAGE_KEY = 'splendor-client-id';
 const ROOM_ID_STORAGE_KEY = 'splendor-room-id';
 const PLAYER_NAME_STORAGE_KEY = 'splendor-player-name';
@@ -119,6 +125,14 @@ const UI_COPY = {
     gameStateTitle: '对局状态',
     turnStatus: (turn: number, playerName: string) => `第 ${turn} 回合，当前行动玩家：${playerName}。`,
     finishedMessage: (winners: string) => `对局结束。胜者：${winners}。`,
+    finalSummaryTitle: '终局结算',
+    finalSummaryDescription: '先比较声望；声望相同时，购买发展牌更少的玩家胜出；仍相同则并列胜利。',
+    finalRank: (rank: number) => `第 ${rank} 名`,
+    finalWinnerLabel: '胜者',
+    finalScoreLabel: '最终声望',
+    purchasedCardCount: (count: number) => `${count} 张发展牌`,
+    nobleCount: (count: number) => `${count} 位贵族`,
+    tieBreakerLabel: '平局判定',
     bankTitle: '银行',
     yourTableauTitle: '你的面板',
     prestige: '声望',
@@ -273,6 +287,15 @@ const UI_COPY = {
     gameStateTitle: 'Game state',
     turnStatus: (turn: number, playerName: string) => `Turn ${turn}. Active player: ${playerName}.`,
     finishedMessage: (winners: string) => `Match finished. Winner${winners.includes(',') ? 's' : ''}: ${winners}.`,
+    finalSummaryTitle: 'Final summary',
+    finalSummaryDescription:
+      'Compare prestige first; tied players are ranked by fewer purchased development cards; exact ties share the win.',
+    finalRank: (rank: number) => `Rank ${rank}`,
+    finalWinnerLabel: 'Winner',
+    finalScoreLabel: 'Final score',
+    purchasedCardCount: (count: number) => `${count} development card${count === 1 ? '' : 's'}`,
+    nobleCount: (count: number) => `${count} noble${count === 1 ? '' : 's'}`,
+    tieBreakerLabel: 'Tie breaker',
     bankTitle: 'Bank',
     yourTableauTitle: 'Your tableau',
     prestige: 'Prestige',
@@ -529,6 +552,42 @@ function formatColorShortfall(breakdown: CardCostBreakdown, tokenLabels: TokenLa
   return BONUS_COLORS.filter((color) => breakdown.shortfallByColor[color] > 0)
     .map((color) => `${tokenLabels[color]} ${breakdown.shortfallByColor[color]}`)
     .join(' | ');
+}
+
+function getFinalStandings(state: GameState): FinalStanding[] {
+  const winnerIds = new Set(state.winnerIds);
+  let previous: GamePlayer | null = null;
+  let currentRank = 0;
+
+  return [...state.players]
+    .sort((left, right) => {
+      if (right.points !== left.points) {
+        return right.points - left.points;
+      }
+
+      if (left.purchasedCards.length !== right.purchasedCards.length) {
+        return left.purchasedCards.length - right.purchasedCards.length;
+      }
+
+      return left.seat - right.seat;
+    })
+    .map((player, index) => {
+      if (
+        !previous ||
+        previous.points !== player.points ||
+        previous.purchasedCards.length !== player.purchasedCards.length
+      ) {
+        currentRank = index + 1;
+      }
+
+      previous = player;
+
+      return {
+        player,
+        rank: currentRank,
+        isWinner: winnerIds.has(player.id)
+      };
+    });
 }
 
 function formatLogEntry(
@@ -835,6 +894,10 @@ const App: React.FC = () => {
         .map((winnerId) => gameState.players.find((player) => player.id === winnerId)?.name ?? winnerId)
         .join(language === 'zh-CN' ? '、' : ', ') ?? '',
     [gameState, language]
+  );
+  const finalStandings = useMemo(
+    () => (gameState?.phase === 'finished' ? getFinalStandings(gameState) : []),
+    [gameState]
   );
   const selectedReturnedCount = useMemo(() => totalTokens(returnedTokens), [returnedTokens]);
   const selectedDistinctColorSet = useMemo(
@@ -1350,6 +1413,38 @@ const App: React.FC = () => {
 
               {gameState.phase === 'finished' && (
                 <div className="notice notice-success">{copy.finishedMessage(winners)}</div>
+              )}
+
+              {gameState.phase === 'finished' && (
+                <div className="summary-card final-summary-card">
+                  <div className="section-heading compact">
+                    <h3>{copy.finalSummaryTitle}</h3>
+                    <p>{copy.finalSummaryDescription}</p>
+                  </div>
+                  <div className="final-standings">
+                    {finalStandings.map(({ player, rank, isWinner }) => (
+                      <div
+                        className={`final-standing-row${isWinner ? ' final-standing-winner' : ''}`}
+                        key={`standing-${player.id}`}
+                      >
+                        <div>
+                          <span className="final-rank">{copy.finalRank(rank)}</span>
+                          <strong>{player.name}</strong>
+                          {isWinner && <span className="winner-badge">{copy.finalWinnerLabel}</span>}
+                        </div>
+                        <div className="final-metrics">
+                          <span>
+                            {copy.finalScoreLabel}: {player.points}
+                          </span>
+                          <span>
+                            {copy.tieBreakerLabel}: {copy.purchasedCardCount(player.purchasedCards.length)}
+                          </span>
+                          <span>{copy.nobleCount(player.nobles.length)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
 
               <div className="board-grid">
