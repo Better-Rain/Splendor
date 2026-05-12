@@ -1,6 +1,8 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import http from 'http';
+import path from 'node:path';
 import { Server } from 'socket.io';
 import { MAX_PLAYERS_PER_ROOM, MIN_PLAYERS_PER_ROOM } from '../shared/constants';
 import { BonusMap, Card, GameAction, GameState, LobbyPlayer, Noble, ReservedCard, Room } from '../shared/types';
@@ -31,9 +33,24 @@ interface PlayerSession {
 interface StartServerOptions {
   port?: number;
   silent?: boolean;
+  snapshotPath?: string | null;
+}
+
+interface PersistedPlayerSession {
+  roomId: string;
+  playerId: string;
+  clientId: string;
+}
+
+interface HostSnapshot {
+  version: 1;
+  savedAt: string;
+  rooms: Room[];
+  sessions: PersistedPlayerSession[];
 }
 
 const LOBBY_RECONNECT_WINDOW_MS = 120000;
+const SNAPSHOT_VERSION = 1;
 
 function now(): string {
   return new Date().toISOString();
@@ -57,6 +74,72 @@ function createLobbyPlayer(playerId: string, name: string, seat: number, isHost:
     joinedAt: now(),
     connectionState: 'connected'
   };
+}
+
+function getDefaultSnapshotPath(): string {
+  return process.env.SPLENDOR_SNAPSHOT_PATH ?? path.join(process.cwd(), 'database', 'host-snapshot.json');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeLoadedRoom(room: Room): Room {
+  return {
+    ...room,
+    players: room.players.map((player) => ({
+      ...player,
+      connectionState: 'disconnected'
+    })),
+    gameState: room.gameState
+      ? {
+          ...room.gameState,
+          players: room.gameState.players.map((player) => ({
+            ...player,
+            connectionState: 'disconnected'
+          }))
+        }
+      : null
+  };
+}
+
+function readHostSnapshot(snapshotPath: string, silent?: boolean): HostSnapshot | null {
+  if (!existsSync(snapshotPath)) {
+    return null;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(snapshotPath, 'utf8'));
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
+    if (parsed.version !== SNAPSHOT_VERSION || !Array.isArray(parsed.rooms) || !Array.isArray(parsed.sessions)) {
+      return null;
+    }
+
+    return {
+      version: SNAPSHOT_VERSION,
+      savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : now(),
+      rooms: parsed.rooms as Room[],
+      sessions: parsed.sessions.filter((session): session is PersistedPlayerSession => {
+        if (!isRecord(session)) {
+          return false;
+        }
+
+        return (
+          typeof session.roomId === 'string' &&
+          typeof session.playerId === 'string' &&
+          typeof session.clientId === 'string'
+        );
+      })
+    };
+  } catch (error) {
+    if (!silent) {
+      console.warn('Could not read host snapshot:', error);
+    }
+    return null;
+  }
 }
 
 function reseatPlayers(room: Room): void {
@@ -188,6 +271,7 @@ export function projectRoomForViewer(room: Room, viewerId: string): Room {
 export function startServer(options: StartServerOptions = {}) {
   const app = express();
   const server = http.createServer(app);
+  const snapshotPath = options.snapshotPath === null ? null : options.snapshotPath ?? getDefaultSnapshotPath();
   const io = new Server(server, {
     cors: {
       origin: process.env.NODE_ENV === 'development' ? true : 'file://',
@@ -207,6 +291,7 @@ export function startServer(options: StartServerOptions = {}) {
       clearTimeout(timer);
     }
     lobbyExpiryTimers.clear();
+    persistSnapshot();
   });
 
   app.get('/health', (_req, res) => {
@@ -220,6 +305,71 @@ export function startServer(options: StartServerOptions = {}) {
       roomClientIndex.set(roomId, index);
     }
     return index;
+  }
+
+  function buildSnapshot(): HostSnapshot {
+    return {
+      version: SNAPSHOT_VERSION,
+      savedAt: now(),
+      rooms: [...rooms.values()].map((room) => JSON.parse(JSON.stringify(room)) as Room),
+      sessions: [...playerSessions.entries()].map(([playerId, session]) => ({
+        roomId: session.roomId,
+        playerId,
+        clientId: session.clientId
+      }))
+    };
+  }
+
+  function persistSnapshot() {
+    if (!snapshotPath) {
+      return;
+    }
+
+    try {
+      mkdirSync(path.dirname(snapshotPath), { recursive: true });
+      const temporaryPath = `${snapshotPath}.tmp`;
+      writeFileSync(temporaryPath, JSON.stringify(buildSnapshot(), null, 2), 'utf8');
+      renameSync(temporaryPath, snapshotPath);
+    } catch (error) {
+      if (!options.silent) {
+        console.warn('Could not write host snapshot:', error);
+      }
+    }
+  }
+
+  function restoreSnapshot() {
+    if (!snapshotPath) {
+      return;
+    }
+
+    const snapshot = readHostSnapshot(snapshotPath, options.silent);
+    if (!snapshot) {
+      return;
+    }
+
+    for (const loadedRoom of snapshot.rooms) {
+      const room = normalizeLoadedRoom(loadedRoom);
+      reseatPlayers(room);
+      rooms.set(room.id, room);
+    }
+
+    for (const session of snapshot.sessions) {
+      const room = rooms.get(session.roomId);
+      if (!room?.players.some((player) => player.id === session.playerId)) {
+        continue;
+      }
+
+      playerSessions.set(session.playerId, {
+        roomId: session.roomId,
+        clientId: session.clientId,
+        socketId: null
+      });
+      getOrCreateRoomClientIndex(session.roomId).set(session.clientId, session.playerId);
+    }
+
+    if (!options.silent) {
+      console.log(`Restored ${rooms.size} room(s) from host snapshot.`);
+    }
   }
 
   function attachPlayerSocket(roomId: string, playerId: string, clientId: string, socketId: string) {
@@ -351,6 +501,7 @@ export function startServer(options: StartServerOptions = {}) {
 
     roomClientIndex.delete(roomId);
     rooms.delete(roomId);
+    persistSnapshot();
   }
 
   function scheduleLobbySessionExpiry(roomId: string, playerId: string) {
@@ -386,11 +537,14 @@ export function startServer(options: StartServerOptions = {}) {
 
       reseatPlayers(room);
       updateRoomTimestamp(room);
+      persistSnapshot();
       emitRoomState(roomId);
     }, LOBBY_RECONNECT_WINDOW_MS);
 
     lobbyExpiryTimers.set(playerId, timer);
   }
+
+  restoreSnapshot();
 
   io.on('connection', (socket) => {
     if (!options.silent) {
@@ -415,6 +569,7 @@ export function startServer(options: StartServerOptions = {}) {
       rooms.set(roomId, room);
       attachPlayerSocket(roomId, playerId, clientId, socket.id);
       socket.join(roomId);
+      persistSnapshot();
       socket.emit('room-created', roomId);
       socket.emit('room-joined', { room: projectRoomForViewer(room, playerId), player: room.players[0] });
       emitRoomState(roomId);
@@ -450,6 +605,7 @@ export function startServer(options: StartServerOptions = {}) {
 
       attachPlayerSocket(roomId, playerId, playerInfo.clientId, socket.id);
       socket.join(roomId);
+      persistSnapshot();
       socket.emit('room-joined', { room: projectRoomForViewer(room, playerId), player });
       socket.to(roomId).emit('player-joined', player);
       emitRoomState(roomId);
@@ -492,6 +648,7 @@ export function startServer(options: StartServerOptions = {}) {
       }
 
       updateRoomTimestamp(room);
+      persistSnapshot();
       socket.emit('session-resumed', { room: projectRoomForViewer(room, playerId), playerId });
       emitGameState(roomId);
       emitRoomState(roomId);
@@ -530,6 +687,7 @@ export function startServer(options: StartServerOptions = {}) {
       room.gameState = initializeGame(room);
       room.status = 'in_game';
       updateRoomTimestamp(room);
+      persistSnapshot();
 
       for (const memberSocket of getRoomSockets(roomId)) {
         const viewerPlayerId = getViewerPlayerId(memberSocket.id);
@@ -569,6 +727,7 @@ export function startServer(options: StartServerOptions = {}) {
         }
 
         updateRoomTimestamp(room);
+        persistSnapshot();
         emitGameState(roomId);
         emitRoomState(roomId);
       } catch (error) {
@@ -612,6 +771,7 @@ export function startServer(options: StartServerOptions = {}) {
       }
 
       updateRoomTimestamp(room);
+      persistSnapshot();
       emitRoomState(room.id);
     });
   });

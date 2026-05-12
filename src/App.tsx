@@ -165,7 +165,7 @@ const UI_COPY = {
     ],
     knownGapsTitle: '当前原型缺口',
     knownGaps: [
-      '主机进程关闭后还没有本地房间快照恢复。',
+      '暂不支持房主迁移；原房主仍是唯一权威主机。',
       '如果同时满足多个贵族，目前会自动拿第一个可选贵族。'
     ],
     returnPanelTitle: '归还宝石',
@@ -299,7 +299,7 @@ const UI_COPY = {
     ],
     knownGapsTitle: 'Known prototype gaps',
     knownGaps: [
-      'Local room snapshot restore after host process shutdown is not implemented yet.',
+      'Host migration is not implemented; the original host remains authoritative.',
       'If multiple nobles are eligible at once, the first eligible noble is chosen automatically.'
     ],
     returnPanelTitle: 'Return tokens',

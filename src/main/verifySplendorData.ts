@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
+import { mkdtempSync, rmSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { io as createClient, Socket } from 'socket.io-client';
 import {
   DEVELOPMENT_CARD_COUNTS,
@@ -16,7 +19,7 @@ import {
   BASE_LEVEL_3_CARDS,
   BASE_NOBLES
 } from '../shared/baseSet';
-import { Room } from '../shared/types';
+import { GameState, Room } from '../shared/types';
 import { applyGameAction, initializeGame } from './gameLogic';
 import { projectGameStateForViewer, startServer } from './server';
 
@@ -437,8 +440,20 @@ async function createConnectedSocket(url: string): Promise<Socket> {
   return socket;
 }
 
+async function closeServer(server: ReturnType<typeof startServer>) {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 async function verifyLobbySessionResume() {
-  const server = startServer({ port: 0, silent: true });
+  const server = startServer({ port: 0, silent: true, snapshotPath: null });
   if (!server.listening) {
     await once(server, 'listening');
   }
@@ -498,15 +513,110 @@ async function verifyLobbySessionResume() {
 
   resumedSocket.disconnect();
   guestSocket.disconnect();
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve();
+  await closeServer(server);
+}
+
+async function verifyHostSnapshotRecovery() {
+  const tempDir = mkdtempSync(path.join(tmpdir(), 'splendor-host-snapshot-'));
+  const snapshotPath = path.join(tempDir, 'host-snapshot.json');
+
+  try {
+    const firstServer = startServer({ port: 0, silent: true, snapshotPath });
+    if (!firstServer.listening) {
+      await once(firstServer, 'listening');
+    }
+
+    const firstAddress = firstServer.address() as AddressInfo;
+    const firstUrl = `http://127.0.0.1:${firstAddress.port}`;
+    const hostClientId = 'snapshot-host-client';
+    const guestClientId = 'snapshot-guest-client';
+
+    const hostSocket = await createConnectedSocket(firstUrl);
+    const hostJoinedPromise = waitForSocketEvent<{ room: Room; player: { id: string } }>(
+      hostSocket,
+      'room-joined'
+    );
+    hostSocket.emit('create-room', {
+      roomName: 'Snapshot Table',
+      playerName: 'Snapshot Host',
+      clientId: hostClientId
     });
-  });
+    const hostJoined = await hostJoinedPromise;
+    const roomId = hostJoined.room.id;
+    const hostPlayerId = hostJoined.player.id;
+
+    const guestSocket = await createConnectedSocket(firstUrl);
+    const guestJoinedPromise = waitForSocketEvent<{ room: Room; player: { id: string } }>(
+      guestSocket,
+      'room-joined'
+    );
+    guestSocket.emit('join-room', roomId, {
+      name: 'Snapshot Guest',
+      clientId: guestClientId
+    });
+    const guestJoined = await guestJoinedPromise;
+    const guestPlayerId = guestJoined.player.id;
+
+    const gameStartedPromise = waitForSocketEvent<GameState>(hostSocket, 'game-started');
+    hostSocket.emit('start-game', roomId);
+    const startedGame = await gameStartedPromise;
+    assert.equal(startedGame.roomId, roomId);
+    assert.equal(startedGame.players.length, 2);
+    assert.equal(startedGame.visibleCards.level1.length, VISIBLE_CARDS_PER_LEVEL);
+
+    hostSocket.disconnect();
+    guestSocket.disconnect();
+    await closeServer(firstServer);
+
+    const restoredServer = startServer({ port: 0, silent: true, snapshotPath });
+    if (!restoredServer.listening) {
+      await once(restoredServer, 'listening');
+    }
+
+    const restoredAddress = restoredServer.address() as AddressInfo;
+    const restoredUrl = `http://127.0.0.1:${restoredAddress.port}`;
+
+    const resumedHostSocket = await createConnectedSocket(restoredUrl);
+    const resumedHostPromise = waitForSocketEvent<{ room: Room; playerId: string }>(
+      resumedHostSocket,
+      'session-resumed'
+    );
+    resumedHostSocket.emit('resume-session', { roomId, clientId: hostClientId });
+    const resumedHost = await resumedHostPromise;
+
+    assert.equal(resumedHost.playerId, hostPlayerId);
+    assert.equal(resumedHost.room.id, roomId);
+    assert.equal(resumedHost.room.status, 'in_game');
+    assert(resumedHost.room.gameState, 'Expected restored room to include game state.');
+    assert.equal(
+      resumedHost.room.gameState.players.find((player) => player.id === hostPlayerId)?.connectionState,
+      'connected'
+    );
+    assert.equal(
+      resumedHost.room.gameState.players.find((player) => player.id === guestPlayerId)?.connectionState,
+      'disconnected'
+    );
+
+    const resumedGuestSocket = await createConnectedSocket(restoredUrl);
+    const resumedGuestPromise = waitForSocketEvent<{ room: Room; playerId: string }>(
+      resumedGuestSocket,
+      'session-resumed'
+    );
+    resumedGuestSocket.emit('resume-session', { roomId, clientId: guestClientId });
+    const resumedGuest = await resumedGuestPromise;
+
+    assert.equal(resumedGuest.playerId, guestPlayerId);
+    assert.equal(
+      resumedGuest.room.gameState?.players.find((player) => player.id === guestPlayerId)?.connectionState,
+      'connected'
+    );
+
+    resumedHostSocket.disconnect();
+    resumedGuestSocket.disconnect();
+    await closeServer(restoredServer);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 }
 
 async function main() {
@@ -525,10 +635,11 @@ async function main() {
   verifyInvalidActionDoesNotMutateState();
   verifyNobleClaimAndFinalRound();
   await verifyLobbySessionResume();
+  await verifyHostSnapshotRecovery();
 
   console.log('Splendor base data verified.');
   console.log(
-    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, invalid-action rollback, hidden information projection, and lobby session recovery.'
+    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, invalid-action rollback, hidden information projection, lobby session recovery, and host snapshot restore.'
   );
 }
 

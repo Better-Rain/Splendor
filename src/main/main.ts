@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { startServer } from './server';
 
@@ -35,7 +35,9 @@ function createWindow() {
 
 app.whenReady().then(() => {
     // 启动游戏服务器
-    server = startServer();
+    server = startServer({
+        snapshotPath: path.join(app.getPath('userData'), 'host-snapshot.json')
+    });
 
     createWindow();
 
