@@ -22,6 +22,7 @@ The first shipping target is the base game only.
   - Buy 1 face-up card or 1 reserved card.
 - Players can hold at most 10 tokens at end of turn.
 - Nobles are checked automatically at end of turn.
+- If a player qualifies for multiple nobles at the end of one turn, they choose exactly one noble; the others remain available for future turns.
 - End game triggers when a player reaches 15 prestige points at the end of their turn; the round finishes so all players get the same number of turns.
 
 ## Architecture Decision
@@ -114,7 +115,6 @@ Current UI is too saturated and generic. The target style is:
 
 ### Gameplay Polish
 
-- Add clearer card readability: localized gem labels, compact cost badges, and visible affordability hints.
 - Add end-of-game summary details: final scores, purchased-card tie breaker, and shared winners.
 
 ### LAN Reliability
@@ -149,10 +149,13 @@ Current UI is too saturated and generic. The target style is:
 - [x] Persist host room snapshots locally so sessions can resume after the host process restarts.
 - [x] Add manual leave-room and host close-room controls.
 - [x] Let the active player choose between multiple eligible nobles.
+- [x] Add clearer card readability with localized cost badges and affordability hints.
 
 ## Notes On Card Data
 
 The repository now includes the full base-game development deck and noble tiles in `src/shared/baseSet.ts`. The verification script checks card counts, point distribution, a stable base-set hash, setup rules, core actions, multiple-noble choice, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot recovery.
+
+Official noble clarification: the base rules do not allow taking multiple nobles in a single turn. If several nobles are eligible, the current player chooses one visitor.
 
 ## References
 

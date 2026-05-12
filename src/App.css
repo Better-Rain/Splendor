@@ -443,6 +443,109 @@ button.danger:hover:not(:disabled) {
   margin: 0 0 8px;
 }
 
+.card-cost-block {
+  display: grid;
+  gap: 8px;
+}
+
+.card-cost-label {
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.cost-badges,
+.missing-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.cost-badge {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  gap: 2px 6px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 9px;
+  border: 1px solid rgba(62, 74, 59, 0.12);
+  background: rgba(255, 255, 255, 0.66);
+  font-size: 0.78rem;
+}
+
+.cost-badge small {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+}
+
+.cost-free {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(70, 111, 78, 0.1);
+  color: var(--accent-moss-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.cost-diamond {
+  background: rgba(230, 232, 236, 0.86);
+}
+
+.cost-sapphire {
+  background: rgba(86, 118, 167, 0.16);
+}
+
+.cost-emerald {
+  background: rgba(77, 130, 101, 0.14);
+}
+
+.cost-ruby {
+  background: rgba(162, 71, 57, 0.14);
+}
+
+.cost-onyx {
+  background: rgba(51, 59, 66, 0.12);
+}
+
+.affordability-hint {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+  border-radius: 14px;
+  padding: 9px 10px;
+  font-size: 0.82rem;
+  border: 1px solid transparent;
+}
+
+.affordability-hint span,
+.affordability-hint small {
+  color: var(--ink-soft);
+}
+
+.affordability-hint-good {
+  background: rgba(70, 111, 78, 0.1);
+  border-color: rgba(70, 111, 78, 0.18);
+}
+
+.affordability-hint-good strong {
+  color: var(--accent-moss-strong);
+}
+
+.affordability-hint-short {
+  background: rgba(136, 68, 47, 0.09);
+  border-color: rgba(136, 68, 47, 0.15);
+}
+
+.affordability-hint-short strong {
+  color: var(--accent-rust);
+}
+
 .card-id {
   font-size: 0.8rem;
   text-transform: uppercase;

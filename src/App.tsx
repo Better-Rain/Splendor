@@ -11,6 +11,7 @@ import {
 import {
   BonusColor,
   Card,
+  GemColor,
   GameAction,
   GamePlayer,
   GameState,
@@ -51,6 +52,16 @@ interface PendingReturnAction {
   overflow: number;
   submitNotice: string;
 }
+
+interface CardCostBreakdown {
+  effectiveCost: Record<BonusColor, number>;
+  shortfallByColor: Record<BonusColor, number>;
+  goldNeeded: number;
+  goldShortfall: number;
+  affordable: boolean;
+}
+
+type TokenLabelMap = Record<GemColor, string>;
 
 const CLIENT_ID_STORAGE_KEY = 'splendor-client-id';
 const ROOM_ID_STORAGE_KEY = 'splendor-room-id';
@@ -139,6 +150,16 @@ const UI_COPY = {
     actionSubmitted: (label: string) => `已提交动作：${label}。`,
     returnSelectionPrompt: (label: string, overflow: number) =>
       `${label} 会让你超出上限，请先选择要归还的 ${overflow} 枚宝石。`,
+    pointsShort: (points: number) => `${points} 分`,
+    costTitle: '费用',
+    netCost: (cost: number) => `折后 ${cost}`,
+    noCost: '免费',
+    canPayNow: '当前可支付',
+    cannotPayNow: '当前不可支付',
+    noGoldNeeded: '不需要黄金',
+    goldNeeded: (count: number) => `需使用 ${count} 枚黄金`,
+    missingTokens: (count: number) => `还差 ${count} 枚宝石或黄金`,
+    colorShortfall: '颜色短缺',
     marketTitle: '市场',
     levelTitle: (level: number) => `${level} 级`,
     marketCounts: (visible: number, left: number) => `${visible} 张明牌 | 牌堆剩余 ${left} 张`,
@@ -283,6 +304,16 @@ const UI_COPY = {
     actionSubmitted: (label: string) => `Submitted action: ${label}.`,
     returnSelectionPrompt: (label: string, overflow: number) =>
       `${label} would leave you over the limit. Choose ${overflow} token(s) to return first.`,
+    pointsShort: (points: number) => `${points} pt`,
+    costTitle: 'Cost',
+    netCost: (cost: number) => `net ${cost}`,
+    noCost: 'Free',
+    canPayNow: 'Affordable now',
+    cannotPayNow: 'Not affordable',
+    noGoldNeeded: 'No gold needed',
+    goldNeeded: (count: number) => `Uses ${count} gold`,
+    missingTokens: (count: number) => `Missing ${count} token${count === 1 ? '' : 's'} or gold`,
+    colorShortfall: 'Color shortfall',
     marketTitle: 'Market',
     levelTitle: (level: number) => `Level ${level}`,
     marketCounts: (visible: number, left: number) => `${visible} face-up | ${left} left in deck`,
@@ -394,6 +425,16 @@ function createEmptyTokenSupply(): TokenSupply {
   };
 }
 
+function createEmptyBonusMap(): Record<BonusColor, number> {
+  return {
+    diamond: 0,
+    sapphire: 0,
+    emerald: 0,
+    ruby: 0,
+    onyx: 0
+  };
+}
+
 function totalTokens(tokens: TokenSupply): number {
   return Object.values(tokens).reduce((sum, value) => sum + value, 0);
 }
@@ -421,13 +462,29 @@ function normalizeReturnedTokens(selection: TokenSupply): TokenSelection {
   return result;
 }
 
-function canAffordCard(player: GamePlayer, card: Card): boolean {
-  const goldNeeded = BONUS_COLORS.reduce((sum, color) => {
-    const effectiveCost = Math.max(0, card.cost[color] - player.bonuses[color]);
-    return sum + Math.max(0, effectiveCost - player.tokens[color]);
-  }, 0);
+function getCardCostBreakdown(player: GamePlayer, card: Card): CardCostBreakdown {
+  const effectiveCost = createEmptyBonusMap();
+  const shortfallByColor = createEmptyBonusMap();
+  let goldNeeded = 0;
 
-  return goldNeeded <= player.tokens.gold;
+  for (const color of BONUS_COLORS) {
+    const costAfterBonus = Math.max(0, card.cost[color] - player.bonuses[color]);
+    const shortfall = Math.max(0, costAfterBonus - player.tokens[color]);
+
+    effectiveCost[color] = costAfterBonus;
+    shortfallByColor[color] = shortfall;
+    goldNeeded += shortfall;
+  }
+
+  const goldShortfall = Math.max(0, goldNeeded - player.tokens.gold);
+
+  return {
+    effectiveCost,
+    shortfallByColor,
+    goldNeeded,
+    goldShortfall,
+    affordable: goldShortfall === 0
+  };
 }
 
 function projectTokensAfterAction(
@@ -459,18 +516,18 @@ function projectTokensAfterAction(
   }
 }
 
-function formatCardCost(card: Card, tokenLabels: Record<'diamond' | 'sapphire' | 'emerald' | 'ruby' | 'onyx' | 'gold', string>) {
-  return BONUS_COLORS.filter((color) => card.cost[color] > 0)
-    .map((color) => `${tokenLabels[color]} ${card.cost[color]}`)
-    .join(' | ');
-}
-
 function formatNobleRequirement(
   noble: { requirement: Record<BonusColor, number> },
-  tokenLabels: Record<'diamond' | 'sapphire' | 'emerald' | 'ruby' | 'onyx' | 'gold', string>
+  tokenLabels: TokenLabelMap
 ) {
   return BONUS_COLORS.filter((color) => noble.requirement[color] > 0)
     .map((color) => `${tokenLabels[color]} ${noble.requirement[color]}`)
+    .join(' | ');
+}
+
+function formatColorShortfall(breakdown: CardCostBreakdown, tokenLabels: TokenLabelMap): string {
+  return BONUS_COLORS.filter((color) => breakdown.shortfallByColor[color] > 0)
+    .map((color) => `${tokenLabels[color]} ${breakdown.shortfallByColor[color]}`)
     .join(' | ');
 }
 
@@ -478,7 +535,7 @@ function formatLogEntry(
   entry: TurnLogEntry,
   playersById: Map<string, GamePlayer>,
   language: Language,
-  tokenLabels: Record<'diamond' | 'sapphire' | 'emerald' | 'ruby' | 'onyx' | 'gold', string>
+  tokenLabels: TokenLabelMap
 ): string {
   const playerName = playersById.get(entry.playerId)?.name ?? entry.playerId;
 
@@ -554,7 +611,7 @@ const App: React.FC = () => {
         ruby: language === 'zh-CN' ? '红宝石' : 'Ruby',
         onyx: language === 'zh-CN' ? '玛瑙' : 'Onyx',
         gold: language === 'zh-CN' ? '黄金' : 'Gold'
-      }) as Record<'diamond' | 'sapphire' | 'emerald' | 'ruby' | 'onyx' | 'gold', string>,
+      }) as TokenLabelMap,
     [language]
   );
 
@@ -1009,7 +1066,10 @@ const App: React.FC = () => {
   };
 
   const renderCard = (card: Card, source: 'board' | 'reserved') => {
-    const affordable = localGamePlayer ? canAffordCard(localGamePlayer, card) : false;
+    const breakdown = localGamePlayer ? getCardCostBreakdown(localGamePlayer, card) : null;
+    const affordable = breakdown?.affordable ?? false;
+    const visibleCostColors = BONUS_COLORS.filter((color) => card.cost[color] > 0);
+    const shortfallText = breakdown ? formatColorShortfall(breakdown, tokenLabels) : '';
     const canReserve =
       !!localGamePlayer &&
       isLocalPlayersTurn &&
@@ -1020,11 +1080,52 @@ const App: React.FC = () => {
       <div className="development-card" key={`${source}-${card.id}`}>
         <div className="development-card-header">
           <span className={`bonus-badge bonus-${card.bonus}`}>{tokenLabels[card.bonus]}</span>
-          <strong>{card.points} pt</strong>
+          <strong>{copy.pointsShort(card.points)}</strong>
         </div>
         <div className="development-card-body">
           <p className="card-id">{card.id}</p>
-          <p>{formatCardCost(card, tokenLabels)}</p>
+          <div className="card-cost-block" aria-label={copy.costTitle}>
+            <span className="card-cost-label">{copy.costTitle}</span>
+            <div className="cost-badges">
+              {visibleCostColors.length > 0 ? (
+                visibleCostColors.map((color) => {
+                  const netCost = breakdown?.effectiveCost[color] ?? card.cost[color];
+                  const isDiscounted = netCost !== card.cost[color];
+
+                  return (
+                    <span className={`cost-badge cost-${color}`} key={`${card.id}-${color}`}>
+                      <span>{tokenLabels[color]}</span>
+                      <strong>{card.cost[color]}</strong>
+                      {isDiscounted && <small>{copy.netCost(netCost)}</small>}
+                    </span>
+                  );
+                })
+              ) : (
+                <span className="cost-free">{copy.noCost}</span>
+              )}
+            </div>
+          </div>
+          {breakdown && (
+            <div
+              className={`affordability-hint ${
+                breakdown.affordable ? 'affordability-hint-good' : 'affordability-hint-short'
+              }`}
+            >
+              <strong>{breakdown.affordable ? copy.canPayNow : copy.cannotPayNow}</strong>
+              <span>
+                {breakdown.affordable
+                  ? breakdown.goldNeeded > 0
+                    ? copy.goldNeeded(breakdown.goldNeeded)
+                    : copy.noGoldNeeded
+                  : copy.missingTokens(breakdown.goldShortfall)}
+              </span>
+              {!breakdown.affordable && shortfallText && (
+                <small>
+                  {copy.colorShortfall}: {shortfallText}
+                </small>
+              )}
+            </div>
+          )}
         </div>
         {source === 'board' ? (
           <div className="card-actions">
