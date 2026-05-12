@@ -217,7 +217,7 @@ button.danger:hover:not(:disabled) {
 
 .room-meta,
 .room-actions,
-.player-row,
+.player-row-topline,
 .player-list li {
   display: flex;
   justify-content: space-between;
@@ -259,7 +259,7 @@ button.danger:hover:not(:disabled) {
 }
 
 .player-list li strong,
-.player-row strong {
+.player-identity strong {
   display: block;
   margin-bottom: 4px;
 }
@@ -724,6 +724,19 @@ button.danger:hover:not(:disabled) {
   padding: 10px 0;
 }
 
+.player-row {
+  display: grid;
+  gap: 14px;
+}
+
+.player-row-topline {
+  align-items: flex-start;
+}
+
+.player-identity span {
+  color: var(--ink-soft);
+}
+
 .player-metrics {
   display: flex;
   gap: 10px;
@@ -731,6 +744,93 @@ button.danger:hover:not(:disabled) {
   justify-content: flex-end;
   color: var(--ink-soft);
   font-size: 0.88rem;
+}
+
+.player-economy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 12px;
+}
+
+.player-economy-section {
+  display: grid;
+  gap: 7px;
+}
+
+.economy-label {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.economy-chip-row,
+.detail-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.economy-chip,
+.detail-chip-row span {
+  border-radius: 999px;
+  border: 1px solid rgba(62, 74, 59, 0.1);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.economy-chip {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  gap: 5px;
+  align-items: center;
+  padding: 6px 8px;
+}
+
+.economy-chip small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.economy-chip strong {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.economy-chip-empty {
+  opacity: 0.48;
+}
+
+.economy-diamond {
+  background: rgba(230, 232, 236, 0.78);
+}
+
+.economy-sapphire {
+  background: rgba(86, 118, 167, 0.14);
+}
+
+.economy-emerald {
+  background: rgba(77, 130, 101, 0.12);
+}
+
+.economy-ruby {
+  background: rgba(162, 71, 57, 0.12);
+}
+
+.economy-onyx {
+  background: rgba(51, 59, 66, 0.1);
+}
+
+.economy-gold {
+  background: rgba(188, 146, 64, 0.16);
+}
+
+.detail-chip-row span {
+  padding: 6px 9px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
 }
 
 .rules-list {
@@ -780,7 +880,7 @@ button.danger:hover:not(:disabled) {
 
   .app-header,
   .room-meta,
-  .player-row,
+  .player-row-topline,
   .player-list li,
   .final-standing-row,
   .noble-choice-card {
@@ -798,12 +898,17 @@ button.danger:hover:not(:disabled) {
   .summary-stats,
   .market-stats,
   .action-grid,
-  .gem-select-grid {
+  .gem-select-grid,
+  .player-economy-grid {
     grid-template-columns: 1fr 1fr;
   }
 
   .distinct-token-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .player-economy-grid {
+    grid-template-columns: 1fr;
   }
 }

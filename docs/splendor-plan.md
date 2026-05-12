@@ -115,17 +115,15 @@ Current UI is too saturated and generic. The target style is:
 
 ### Gameplay Polish
 
-- Improve in-game player panels with clearer token, bonus, reserve, and noble breakdowns.
+- Add clearer action-log presentation with localized action categories and important turn events.
 
 ### LAN Reliability
 
 - Keep the current host-authoritative model, but document the explicit host-only room lifetime.
 - Add a room recovery panel for restored rooms, including disconnected players and snapshot age.
-- Add manual leave-room and close-room controls so stale rooms do not linger.
 
 ### Tooling And Packaging
 
-- Finish renderer migration from CRA/react-scripts to Vite and keep build checks green.
 - Add a production smoke check for the built Electron renderer.
 - Tighten package metadata, icon handling, and installer output naming.
 
@@ -151,6 +149,7 @@ Current UI is too saturated and generic. The target style is:
 - [x] Let the active player choose between multiple eligible nobles.
 - [x] Add clearer card readability with localized cost badges and affordability hints.
 - [x] Add end-of-game summary details: final scores, purchased-card tie breaker, and shared winners.
+- [x] Improve in-game player panels with clearer token, bonus, reserve, and noble breakdowns.
 
 ## Notes On Card Data
 

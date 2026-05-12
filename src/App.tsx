@@ -11,6 +11,7 @@ import {
 import {
   BonusColor,
   Card,
+  CardLevel,
   GemColor,
   GameAction,
   GamePlayer,
@@ -183,6 +184,12 @@ const UI_COPY = {
     currentTurn: '当前行动',
     waiting: '等待中',
     bought: '已购买',
+    playerTokensLabel: '持有宝石',
+    playerBonusesLabel: '永久奖励',
+    playerReservedBreakdownLabel: '预留牌',
+    playerNoblesLabel: '贵族',
+    noPlayerNobles: '暂无贵族',
+    reservedLevelCount: (level: number, count: number) => `${level} 级 ${count} 张`,
     recentLogTitle: '最近日志',
     noActionLog: '还没有动作日志。',
     rulesSnapshotTitle: '规则速览',
@@ -346,6 +353,12 @@ const UI_COPY = {
     currentTurn: 'Current turn',
     waiting: 'Waiting',
     bought: 'bought',
+    playerTokensLabel: 'Tokens held',
+    playerBonusesLabel: 'Permanent bonuses',
+    playerReservedBreakdownLabel: 'Reserved cards',
+    playerNoblesLabel: 'Nobles',
+    noPlayerNobles: 'No nobles',
+    reservedLevelCount: (level: number, count: number) => `Level ${level} x${count}`,
     recentLogTitle: 'Recent log',
     noActionLog: 'No actions logged yet.',
     rulesSnapshotTitle: 'Rules snapshot',
@@ -552,6 +565,20 @@ function formatColorShortfall(breakdown: CardCostBreakdown, tokenLabels: TokenLa
   return BONUS_COLORS.filter((color) => breakdown.shortfallByColor[color] > 0)
     .map((color) => `${tokenLabels[color]} ${breakdown.shortfallByColor[color]}`)
     .join(' | ');
+}
+
+function getReservedLevelCounts(player: GamePlayer): Record<CardLevel, number> {
+  return player.reservedCards.reduce<Record<CardLevel, number>>(
+    (counts, reservedCard) => {
+      counts[reservedCard.level] += 1;
+      return counts;
+    },
+    {
+      1: 0,
+      2: 0,
+      3: 0
+    }
+  );
 }
 
 function getFinalStandings(state: GameState): FinalStanding[] {
@@ -1722,33 +1749,96 @@ const App: React.FC = () => {
               <div className="summary-card">
                 <h3>{copy.playersTitle}</h3>
                 <div className="player-table">
-                  {gameState.players.map((player) => (
-                    <div className="player-row" key={player.id}>
-                      <div>
-                        <strong>{player.name}</strong>
-                        <span>
-                          {player.id === activePlayer?.id ? copy.currentTurn : copy.waiting} |{' '}
-                          {player.connectionState === 'connected'
-                            ? copy.connectedState
-                            : copy.disconnectedState}
-                        </span>
+                  {gameState.players.map((player) => {
+                    const reservedLevelCounts = getReservedLevelCounts(player);
+                    const reservedBreakdown = ([1, 2, 3] as CardLevel[])
+                      .filter((level) => reservedLevelCounts[level] > 0)
+                      .map((level) => copy.reservedLevelCount(level, reservedLevelCounts[level]));
+
+                    return (
+                      <div className="player-row" key={player.id}>
+                        <div className="player-row-topline">
+                          <div className="player-identity">
+                            <strong>{player.name}</strong>
+                            <span>
+                              {player.id === activePlayer?.id ? copy.currentTurn : copy.waiting} |{' '}
+                              {player.connectionState === 'connected'
+                                ? copy.connectedState
+                                : copy.disconnectedState}
+                            </span>
+                          </div>
+                          <div className="player-metrics">
+                            <span>
+                              {player.points} {copy.prestige}
+                            </span>
+                            <span>
+                              {player.reservedCards.length} {copy.reserve}
+                            </span>
+                            <span>
+                              {player.purchasedCards.length} {copy.bought}
+                            </span>
+                            <span>
+                              {player.nobles.length} {copy.nobles}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="player-economy-grid">
+                          <div className="player-economy-section">
+                            <span className="economy-label">{copy.playerTokensLabel}</span>
+                            <div className="economy-chip-row">
+                              {GEM_COLORS.map((color) => (
+                                <span
+                                  className={`economy-chip economy-${color}${
+                                    player.tokens[color] === 0 ? ' economy-chip-empty' : ''
+                                  }`}
+                                  key={`${player.id}-tokens-${color}`}
+                                >
+                                  <small>{tokenLabels[color]}</small>
+                                  <strong>{player.tokens[color]}</strong>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="player-economy-section">
+                            <span className="economy-label">{copy.playerBonusesLabel}</span>
+                            <div className="economy-chip-row">
+                              {BONUS_COLORS.map((color) => (
+                                <span
+                                  className={`economy-chip economy-${color}${
+                                    player.bonuses[color] === 0 ? ' economy-chip-empty' : ''
+                                  }`}
+                                  key={`${player.id}-bonuses-${color}`}
+                                >
+                                  <small>{tokenLabels[color]}</small>
+                                  <strong>{player.bonuses[color]}</strong>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="player-economy-section">
+                            <span className="economy-label">{copy.playerReservedBreakdownLabel}</span>
+                            <div className="detail-chip-row">
+                              {reservedBreakdown.length > 0 ? (
+                                reservedBreakdown.map((item) => <span key={`${player.id}-${item}`}>{item}</span>)
+                              ) : (
+                                <span>{copy.noReservedCards}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="player-economy-section">
+                            <span className="economy-label">{copy.playerNoblesLabel}</span>
+                            <div className="detail-chip-row">
+                              {player.nobles.length > 0 ? (
+                                player.nobles.map((noble) => <span key={`${player.id}-${noble.id}`}>{noble.id}</span>)
+                              ) : (
+                                <span>{copy.noPlayerNobles}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="player-metrics">
-                        <span>
-                          {player.points} {copy.prestige}
-                        </span>
-                        <span>
-                          {player.reservedCards.length} {copy.reserve}
-                        </span>
-                        <span>
-                          {player.purchasedCards.length} {copy.bought}
-                        </span>
-                        <span>
-                          {player.nobles.length} {copy.nobles}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
