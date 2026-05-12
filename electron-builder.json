@@ -1,0 +1,23 @@
+{
+  "appId": "com.splendor.electron",
+  "productName": "Splendor Desk",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "dist/main/**/*",
+    "dist/renderer/**/*",
+    "assets/**/*"
+  ],
+  "extraResources": [
+    "assets/**"
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "assets/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}

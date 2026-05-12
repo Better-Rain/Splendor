@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2020",
+    "outDir": "./dist/renderer",
+    "rootDir": "./src",
+    "jsx": "react-jsx",
+    "noEmit": false,
+    "types": ["react", "react-dom"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/main/**/*"]
+}
