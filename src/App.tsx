@@ -70,6 +70,16 @@ interface FinalStanding {
   isWinner: boolean;
 }
 
+type LogTone = 'tokens' | 'reserve' | 'purchase' | 'noble';
+
+interface ActionLogDisplay {
+  title: string;
+  summary: string;
+  detailChips: string[];
+  tone: LogTone;
+  important: boolean;
+}
+
 const CLIENT_ID_STORAGE_KEY = 'splendor-client-id';
 const ROOM_ID_STORAGE_KEY = 'splendor-room-id';
 const PLAYER_NAME_STORAGE_KEY = 'splendor-player-name';
@@ -665,6 +675,97 @@ function formatLogEntry(
     default:
       return entry.summary;
   }
+}
+
+function getLogActionTitle(type: TurnLogEntry['type'], language: Language): string {
+  const labels = {
+    'zh-CN': {
+      take_three_distinct_tokens: '拿取宝石',
+      take_two_same_tokens: '拿取同色',
+      reserve_card: '预留发展牌',
+      purchase_card: '购买发展牌',
+      claim_noble: '贵族拜访'
+    },
+    'en-US': {
+      take_three_distinct_tokens: 'Token take',
+      take_two_same_tokens: 'Double take',
+      reserve_card: 'Reserve',
+      purchase_card: 'Purchase',
+      claim_noble: 'Noble visit'
+    }
+  } as const;
+
+  return labels[language][type];
+}
+
+function getLogTone(type: TurnLogEntry['type']): LogTone {
+  switch (type) {
+    case 'take_three_distinct_tokens':
+    case 'take_two_same_tokens':
+      return 'tokens';
+    case 'reserve_card':
+      return 'reserve';
+    case 'purchase_card':
+      return 'purchase';
+    case 'claim_noble':
+      return 'noble';
+    default:
+      return 'tokens';
+  }
+}
+
+function getLogSourceLabel(
+  source: 'board' | 'deck' | 'reserved' | undefined,
+  language: Language
+): string | null {
+  if (!source) {
+    return null;
+  }
+
+  if (language === 'zh-CN') {
+    return source === 'deck' ? '牌堆顶' : source === 'reserved' ? '预留牌' : '市场明牌';
+  }
+
+  return source === 'deck' ? 'Deck top' : source === 'reserved' ? 'Reserved' : 'Market';
+}
+
+function formatActionLogDisplay(
+  entry: TurnLogEntry,
+  playersById: Map<string, GamePlayer>,
+  language: Language,
+  tokenLabels: TokenLabelMap
+): ActionLogDisplay {
+  const playerName = playersById.get(entry.playerId)?.name ?? entry.playerId;
+  const detailChips = [playerName];
+  const sourceLabel = getLogSourceLabel(entry.details?.source, language);
+
+  if (entry.type === 'take_three_distinct_tokens' && entry.details?.colors) {
+    detailChips.push(entry.details.colors.map((color) => tokenLabels[color]).join(' / '));
+  }
+
+  if (entry.type === 'take_two_same_tokens' && entry.details?.color) {
+    detailChips.push(`${tokenLabels[entry.details.color]} x2`);
+  }
+
+  if (sourceLabel) {
+    detailChips.push(sourceLabel);
+  }
+
+  if (entry.details?.cardId && entry.details.source !== 'deck') {
+    detailChips.push(entry.details.cardId);
+  }
+
+  if (entry.details?.nobleId) {
+    detailChips.push(entry.details.nobleId);
+  }
+
+  return {
+    title: getLogActionTitle(entry.type, language),
+    summary: formatLogEntry(entry, playersById, language, tokenLabels),
+    detailChips,
+    tone: getLogTone(entry.type),
+    important: entry.type === 'purchase_card' || entry.type === 'claim_noble'
+  };
 }
 
 const App: React.FC = () => {
@@ -1846,12 +1947,36 @@ const App: React.FC = () => {
                 <h3>{copy.recentLogTitle}</h3>
                 {gameState.log.length > 0 ? (
                   <div className="log-list">
-                    {[...gameState.log].slice(-8).reverse().map((entry, index) => (
-                      <div className="log-entry" key={`${entry.createdAt}-${index}`}>
-                        <strong>{language === 'zh-CN' ? `第 ${entry.turn} 回合` : `Turn ${entry.turn}`}</strong>
-                        <span>{formatLogEntry(entry, playersById, language, tokenLabels)}</span>
-                      </div>
-                    ))}
+                    {[...gameState.log].slice(-8).reverse().map((entry, index) => {
+                      const displayEntry = formatActionLogDisplay(
+                        entry,
+                        playersById,
+                        language,
+                        tokenLabels
+                      );
+
+                      return (
+                        <div
+                          className={`log-entry log-entry-${displayEntry.tone}${
+                            displayEntry.important ? ' log-entry-important' : ''
+                          }`}
+                          key={`${entry.createdAt}-${index}`}
+                        >
+                          <div className="log-entry-header">
+                            <span className="log-turn-badge">
+                              {language === 'zh-CN' ? `第 ${entry.turn} 回合` : `Turn ${entry.turn}`}
+                            </span>
+                            <span className="log-action-badge">{displayEntry.title}</span>
+                          </div>
+                          <p className="log-entry-summary">{displayEntry.summary}</p>
+                          <div className="log-detail-row">
+                            {displayEntry.detailChips.map((chip) => (
+                              <span key={`${entry.createdAt}-${chip}`}>{chip}</span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p>{copy.noActionLog}</p>

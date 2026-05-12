@@ -427,8 +427,7 @@ button.danger:hover:not(:disabled) {
 }
 
 .development-card-header,
-.card-actions,
-.log-entry {
+.card-actions {
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -849,13 +848,77 @@ button.danger:hover:not(:disabled) {
 }
 
 .log-entry {
+  display: grid;
+  gap: 9px;
   border-radius: 14px;
   padding: 12px;
   background: rgba(31, 38, 24, 0.04);
+  border: 1px solid transparent;
+}
+
+.log-entry-header,
+.log-detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.log-entry-header {
+  justify-content: space-between;
+}
+
+.log-turn-badge,
+.log-action-badge,
+.log-detail-row span {
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.log-turn-badge {
+  background: rgba(46, 62, 53, 0.08);
+}
+
+.log-action-badge {
+  background: rgba(167, 130, 63, 0.14);
+}
+
+.log-detail-row span {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(62, 74, 59, 0.08);
+  font-weight: 600;
+}
+
+.log-entry-summary {
+  margin: 0;
+  color: var(--ink-strong);
 }
 
 .log-entry span {
   color: var(--ink-soft);
+}
+
+.log-entry-important {
+  border-color: rgba(167, 130, 63, 0.22);
+  background: rgba(255, 248, 232, 0.56);
+}
+
+.log-entry-tokens .log-action-badge {
+  background: rgba(77, 130, 101, 0.12);
+}
+
+.log-entry-reserve .log-action-badge {
+  background: rgba(86, 118, 167, 0.13);
+}
+
+.log-entry-purchase .log-action-badge {
+  background: rgba(167, 130, 63, 0.18);
+}
+
+.log-entry-noble .log-action-badge {
+  background: rgba(162, 71, 57, 0.14);
 }
 
 .compact {

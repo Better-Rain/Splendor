@@ -115,7 +115,7 @@ Current UI is too saturated and generic. The target style is:
 
 ### Gameplay Polish
 
-- Add clearer action-log presentation with localized action categories and important turn events.
+- Add table-level ready and seating controls before starting a match.
 
 ### LAN Reliability
 
@@ -150,6 +150,7 @@ Current UI is too saturated and generic. The target style is:
 - [x] Add clearer card readability with localized cost badges and affordability hints.
 - [x] Add end-of-game summary details: final scores, purchased-card tie breaker, and shared winners.
 - [x] Improve in-game player panels with clearer token, bonus, reserve, and noble breakdowns.
+- [x] Add clearer action-log presentation with localized action categories and important turn events.
 
 ## Notes On Card Data
 
