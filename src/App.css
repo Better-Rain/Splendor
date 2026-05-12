@@ -96,6 +96,73 @@
   margin-top: 20px;
 }
 
+.game-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.game-view-switcher {
+  position: sticky;
+  top: 14px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 6px;
+  background: rgba(255, 252, 245, 0.9);
+  box-shadow: 0 14px 30px rgba(31, 38, 24, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.game-view-tab {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.game-view-tab::after {
+  content: "";
+  position: absolute;
+  inset: auto 22% 5px;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transform: scaleX(0.2);
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.game-view-tab.active {
+  background: var(--accent-moss);
+  color: var(--surface-paper);
+  box-shadow: 0 8px 18px rgba(46, 62, 53, 0.16);
+}
+
+.game-view-tab.active::after {
+  background: rgba(255, 255, 255, 0.72);
+  transform: scaleX(1);
+}
+
+.game-view-frame {
+  display: grid;
+  gap: 18px;
+  animation: view-surface-in 220ms ease-out both;
+}
+
+@keyframes view-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .panel-grid,
 .board-grid,
 .room-columns {
@@ -957,6 +1024,12 @@ button.danger:hover:not(:disabled) {
     align-items: stretch;
   }
 
+  .game-view-switcher {
+    position: static;
+    grid-template-columns: 1fr 1fr;
+    border-radius: 18px;
+  }
+
   .token-grid,
   .summary-stats,
   .market-stats,
@@ -973,5 +1046,15 @@ button.danger:hover:not(:disabled) {
 
   .player-economy-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }

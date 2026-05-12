@@ -72,7 +72,8 @@ Current UI is too saturated and generic. The target style is:
   - Room status first.
   - Board state second.
   - Player economy and turn affordances third.
-- Minimal animations and no decorative glassmorphism.
+- Minimal but purposeful animations for view transitions and key state changes.
+- Split dense match content into focused views so players do not need to scan one long page during their turn.
 - Mobile-adjacent width handling is still important because Electron windows may be resized.
 
 ## Milestones
@@ -151,6 +152,7 @@ Current UI is too saturated and generic. The target style is:
 - [x] Add end-of-game summary details: final scores, purchased-card tie breaker, and shared winners.
 - [x] Improve in-game player panels with clearer token, bonus, reserve, and noble breakdowns.
 - [x] Add clearer action-log presentation with localized action categories and important turn events.
+- [x] Add focused in-game view switching with subtle transition animation.
 
 ## Notes On Card Data
 

@@ -24,6 +24,7 @@ import {
 } from './shared/types';
 
 type Language = 'zh-CN' | 'en-US';
+type GameView = 'overview' | 'market' | 'players' | 'log';
 
 interface RoomJoinedPayload {
   room: Room;
@@ -83,6 +84,7 @@ interface ActionLogDisplay {
 const CLIENT_ID_STORAGE_KEY = 'splendor-client-id';
 const ROOM_ID_STORAGE_KEY = 'splendor-room-id';
 const PLAYER_NAME_STORAGE_KEY = 'splendor-player-name';
+const GAME_VIEWS: GameView[] = ['overview', 'market', 'players', 'log'];
 
 const UI_COPY = {
   'zh-CN': {
@@ -136,6 +138,13 @@ const UI_COPY = {
     gameStateTitle: '对局状态',
     turnStatus: (turn: number, playerName: string) => `第 ${turn} 回合，当前行动玩家：${playerName}。`,
     finishedMessage: (winners: string) => `对局结束。胜者：${winners}。`,
+    gameViewSwitcherLabel: '对局视图切换',
+    gameViews: {
+      overview: '行动',
+      market: '市场',
+      players: '玩家',
+      log: '日志'
+    },
     finalSummaryTitle: '终局结算',
     finalSummaryDescription: '先比较声望；声望相同时，购买发展牌更少的玩家胜出；仍相同则并列胜利。',
     finalRank: (rank: number) => `第 ${rank} 名`,
@@ -304,6 +313,13 @@ const UI_COPY = {
     gameStateTitle: 'Game state',
     turnStatus: (turn: number, playerName: string) => `Turn ${turn}. Active player: ${playerName}.`,
     finishedMessage: (winners: string) => `Match finished. Winner${winners.includes(',') ? 's' : ''}: ${winners}.`,
+    gameViewSwitcherLabel: 'Game view switcher',
+    gameViews: {
+      overview: 'Action',
+      market: 'Market',
+      players: 'Players',
+      log: 'Log'
+    },
     finalSummaryTitle: 'Final summary',
     finalSummaryDescription:
       'Compare prestige first; tied players are ranked by fewer purchased development cards; exact ties share the win.',
@@ -781,6 +797,7 @@ const App: React.FC = () => {
   const [selectedDistinctColors, setSelectedDistinctColors] = useState<BonusColor[]>([]);
   const [pendingReturnAction, setPendingReturnAction] = useState<PendingReturnAction | null>(null);
   const [returnedTokens, setReturnedTokens] = useState<TokenSupply>(createEmptyTokenSupply);
+  const [gameView, setGameView] = useState<GameView>('overview');
   const [notice, setNotice] = useState<NoticeState>({
     tone: 'info',
     message: UI_COPY[getInitialLanguage()].defaultNotice
@@ -995,6 +1012,7 @@ const App: React.FC = () => {
   const canLeaveRoom = !!currentRoom && !!localRoomPlayer && !localRoomPlayer.isHost && currentRoom.status !== 'in_game';
   const canCloseRoom = !!currentRoom && !!localRoomPlayer?.isHost;
   const pendingNobleClaim = gameState?.pendingNobleClaim ?? null;
+  const hasCriticalPrompt = !!pendingNobleClaim || !!pendingReturnAction;
   const pendingNoblePlayer = pendingNobleClaim
     ? gameState?.players.find((player) => player.id === pendingNobleClaim.playerId) ?? null
     : null;
@@ -1054,6 +1072,12 @@ const App: React.FC = () => {
       setSelectedDistinctColors([]);
     }
   }, [isLocalPlayersTurn, selectedDistinctColors.length]);
+
+  useEffect(() => {
+    if (hasCriticalPrompt) {
+      setGameView('overview');
+    }
+  }, [hasCriticalPrompt]);
 
   const createRoom = () => {
     if (socket && playerName.trim()) {
@@ -1575,7 +1599,24 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <div className="board-grid">
+              <div className="game-view-switcher" role="tablist" aria-label={copy.gameViewSwitcherLabel}>
+                {GAME_VIEWS.map((view) => (
+                  <button
+                    className={`game-view-tab${gameView === view ? ' active' : ''}`}
+                    key={view}
+                    role="tab"
+                    aria-selected={gameView === view}
+                    disabled={hasCriticalPrompt && view !== 'overview'}
+                    onClick={() => setGameView(view)}
+                  >
+                    {copy.gameViews[view]}
+                  </button>
+                ))}
+              </div>
+
+              {gameView === 'overview' && (
+                <div className="game-view-frame" key="overview">
+                  <div className="board-grid">
                 <div className="summary-card">
                   <h3>{copy.bankTitle}</h3>
                   <div className="token-grid">
@@ -1808,9 +1849,13 @@ const App: React.FC = () => {
                   ))}
                 </div>
                 <p className="helper-note">{copy.hiddenReserveNote}</p>
-              </div>
+                  </div>
+                </div>
+              )}
 
-              <div className="summary-card">
+              {gameView === 'market' && (
+                <div className="game-view-frame" key="market">
+                  <div className="summary-card">
                 <h3>{copy.marketTitle}</h3>
                 <div className="market-columns">
                   {(['level1', 'level2', 'level3'] as const).map((levelKey, index) => (
@@ -1844,10 +1889,14 @@ const App: React.FC = () => {
                   ) : (
                     <p>{copy.noReservedCards}</p>
                   )}
+                  </div>
+                )}
                 </div>
               )}
 
-              <div className="summary-card">
+              {gameView === 'players' && (
+                <div className="game-view-frame" key="players">
+                  <div className="summary-card">
                 <h3>{copy.playersTitle}</h3>
                 <div className="player-table">
                   {gameState.players.map((player) => {
@@ -1941,9 +1990,13 @@ const App: React.FC = () => {
                     );
                   })}
                 </div>
-              </div>
+                  </div>
+                </div>
+              )}
 
-              <div className="summary-card">
+              {gameView === 'log' && (
+                <div className="game-view-frame" key="log">
+                  <div className="summary-card">
                 <h3>{copy.recentLogTitle}</h3>
                 {gameState.log.length > 0 ? (
                   <div className="log-list">
@@ -1982,6 +2035,9 @@ const App: React.FC = () => {
                   <p>{copy.noActionLog}</p>
                 )}
               </div>
+            </div>
+          )}
+
             </div>
           )}
 
