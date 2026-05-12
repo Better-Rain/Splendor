@@ -119,11 +119,12 @@ Current UI is too saturated and generic. The target style is:
 - [ ] Migrate renderer tooling from CRA to Vite.
 - [x] Replace placeholder card generation with the complete official base deck.
 - [x] Implement core action validation and turn resolution.
-- [ ] Add tests for setup and token rules.
+- [x] Add tests for setup and token rules.
+- [x] Roll back failed rule actions so stale or invalid client intents cannot corrupt host state.
 
 ## Notes On Card Data
 
-This repository still uses placeholder generated cards and nobles. That is acceptable for structural work, but it is not acceptable for the first playable rules-complete milestone. The next gameplay pass must replace the generated content with the full base-game dataset.
+The repository now includes the full base-game development deck and noble tiles in `src/shared/baseSet.ts`. The verification script checks card counts, point distribution, a stable base-set hash, setup rules, core actions, invalid-action rollback, hidden information projection, and lobby session recovery.
 
 ## References
 

@@ -49,6 +49,7 @@ interface PendingReturnAction {
 
 const CLIENT_ID_STORAGE_KEY = 'splendor-client-id';
 const ROOM_ID_STORAGE_KEY = 'splendor-room-id';
+const PLAYER_NAME_STORAGE_KEY = 'splendor-player-name';
 
 const UI_COPY = {
   'zh-CN': {
@@ -109,7 +110,12 @@ const UI_COPY = {
     actionPanelTitle: '操作面板',
     actionPanelDescription:
       '动作会先提交给主机校验；如果动作后会超过 10 枚宝石，界面会要求你先选择要归还的宝石。',
-    takeDifferent: (count: number) => `拿至多 ${count} 种不同宝石`,
+    takeDifferentTitle: '拿不同颜色宝石',
+    takeDifferentDescription: '选择 1 到 3 种银行里仍有库存的宝石，再提交动作。',
+    selectedDifferentGems: (count: number) => `已选择 ${count} / 3`,
+    submitDifferentGems: (count: number) => `拿 ${count} 种不同宝石`,
+    clearSelection: '清空选择',
+    takeDifferent: (count: number) => `拿 ${count} 种不同宝石`,
     takeTwoSame: (color: string) => `拿 2 枚${color}`,
     reserveTopLevel: (level: number) => `预留 ${level} 级牌堆顶`,
     reserve: '预留',
@@ -159,7 +165,7 @@ const UI_COPY = {
     ],
     knownGapsTitle: '当前原型缺口',
     knownGaps: [
-      '开局前大厅的断线重连还没有完整恢复。',
+      '主机进程关闭后还没有本地房间快照恢复。',
       '如果同时满足多个贵族，目前会自动拿第一个可选贵族。'
     ],
     returnPanelTitle: '归还宝石',
@@ -238,7 +244,12 @@ const UI_COPY = {
     actionPanelTitle: 'Action panel',
     actionPanelDescription:
       'Actions are validated on the host; if the action would leave you above 10 tokens, you will be asked to pick tokens to return first.',
-    takeDifferent: (count: number) => `Take up to ${count} different gems`,
+    takeDifferentTitle: 'Take different gems',
+    takeDifferentDescription: 'Pick 1 to 3 available gem colors, then submit the move.',
+    selectedDifferentGems: (count: number) => `${count} / 3 selected`,
+    submitDifferentGems: (count: number) => `Take ${count} different gem${count === 1 ? '' : 's'}`,
+    clearSelection: 'Clear selection',
+    takeDifferent: (count: number) => `Take ${count} different gem${count === 1 ? '' : 's'}`,
     takeTwoSame: (color: string) => `Take 2 ${color}`,
     reserveTopLevel: (level: number) => `Reserve top of level ${level}`,
     reserve: 'Reserve',
@@ -288,7 +299,7 @@ const UI_COPY = {
     ],
     knownGapsTitle: 'Known prototype gaps',
     knownGaps: [
-      'Pregame lobby reconnection is not fully restored yet.',
+      'Local room snapshot restore after host process shutdown is not implemented yet.',
       'If multiple nobles are eligible at once, the first eligible noble is chosen automatically.'
     ],
     returnPanelTitle: 'Return tokens',
@@ -341,6 +352,10 @@ function getClientId(): string {
 
 function getSavedRoomId(): string {
   return window.localStorage.getItem(ROOM_ID_STORAGE_KEY) ?? '';
+}
+
+function getSavedPlayerName(): string {
+  return window.localStorage.getItem(PLAYER_NAME_STORAGE_KEY) ?? '';
 }
 
 function createEmptyTokenSupply(): TokenSupply {
@@ -480,11 +495,12 @@ const App: React.FC = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [roomId, setRoomId] = useState(getSavedRoomId);
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(getSavedPlayerName);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [localPlayerId, setLocalPlayerId] = useState<string | null>(null);
+  const [selectedDistinctColors, setSelectedDistinctColors] = useState<BonusColor[]>([]);
   const [pendingReturnAction, setPendingReturnAction] = useState<PendingReturnAction | null>(null);
   const [returnedTokens, setReturnedTokens] = useState<TokenSupply>(createEmptyTokenSupply);
   const [notice, setNotice] = useState<NoticeState>({
@@ -515,6 +531,10 @@ const App: React.FC = () => {
   useEffect(() => {
     window.localStorage.setItem('splendor-language', language);
   }, [language]);
+
+  useEffect(() => {
+    window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, playerName);
+  }, [playerName]);
 
   useEffect(() => {
     const nextSocket = io(getServerUrl());
@@ -558,6 +578,10 @@ const App: React.FC = () => {
       setLocalPlayerId(player.id);
       setGameStarted(room.status === 'in_game' || !!room.gameState);
       window.localStorage.setItem(ROOM_ID_STORAGE_KEY, room.id);
+      const joinedPlayer = room.players.find((candidate) => candidate.id === player.id);
+      if (joinedPlayer) {
+        setPlayerName(joinedPlayer.name);
+      }
       setNotice({
         tone: 'success',
         message: UI_COPY[languageRef.current].joinedRoom(room.name)
@@ -571,6 +595,10 @@ const App: React.FC = () => {
       setRoomId(room.id);
       setGameStarted(room.status === 'in_game' || room.status === 'closed' || !!room.gameState);
       window.localStorage.setItem(ROOM_ID_STORAGE_KEY, room.id);
+      const resumedPlayer = room.players.find((candidate) => candidate.id === playerId);
+      if (resumedPlayer) {
+        setPlayerName(resumedPlayer.name);
+      }
       setNotice({
         tone: 'success',
         message:
@@ -668,10 +696,6 @@ const App: React.FC = () => {
     localGamePlayer.id === activePlayer.id &&
     gameState.phase !== 'finished'
   );
-  const availableColors = useMemo(
-    () => BONUS_COLORS.filter((color) => (gameState?.gemSupply[color] ?? 0) > 0),
-    [gameState]
-  );
   const winners = useMemo(
     () =>
       gameState?.winnerIds
@@ -680,6 +704,32 @@ const App: React.FC = () => {
     [gameState, language]
   );
   const selectedReturnedCount = useMemo(() => totalTokens(returnedTokens), [returnedTokens]);
+  const selectedDistinctColorSet = useMemo(
+    () => new Set(selectedDistinctColors),
+    [selectedDistinctColors]
+  );
+  const canSubmitDistinctTake =
+    isLocalPlayersTurn &&
+    selectedDistinctColors.length > 0 &&
+    selectedDistinctColors.every((color) => (gameState?.gemSupply[color] ?? 0) > 0);
+
+  useEffect(() => {
+    if (localRoomPlayer && playerName !== localRoomPlayer.name) {
+      setPlayerName(localRoomPlayer.name);
+    }
+  }, [localRoomPlayer, playerName]);
+
+  useEffect(() => {
+    setSelectedDistinctColors((current) =>
+      current.filter((color) => (gameState?.gemSupply[color] ?? 0) > 0).slice(0, 3)
+    );
+  }, [gameState]);
+
+  useEffect(() => {
+    if (!isLocalPlayersTurn && selectedDistinctColors.length > 0) {
+      setSelectedDistinctColors([]);
+    }
+  }, [isLocalPlayersTurn, selectedDistinctColors.length]);
 
   const createRoom = () => {
     if (socket && playerName.trim()) {
@@ -806,6 +856,39 @@ const App: React.FC = () => {
       tone: 'info',
       message: UI_COPY[nextLanguage].defaultNotice
     });
+  };
+
+  const toggleDistinctColor = (color: BonusColor) => {
+    if (!isLocalPlayersTurn || (gameState?.gemSupply[color] ?? 0) <= 0) {
+      return;
+    }
+
+    setSelectedDistinctColors((current) => {
+      if (current.includes(color)) {
+        return current.filter((selectedColor) => selectedColor !== color);
+      }
+
+      if (current.length >= 3) {
+        return current;
+      }
+
+      return [...current, color];
+    });
+  };
+
+  const submitDistinctTake = () => {
+    if (!canSubmitDistinctTake) {
+      return;
+    }
+
+    queueAction(
+      {
+        type: 'take_three_distinct_tokens',
+        colors: selectedDistinctColors
+      },
+      copy.takeDifferent(selectedDistinctColors.length)
+    );
+    setSelectedDistinctColors([]);
   };
 
   const confirmPendingReturnAction = () => {
@@ -1181,49 +1264,45 @@ const App: React.FC = () => {
               <div className="summary-card">
                 <h3>{copy.actionPanelTitle}</h3>
                 <p>{copy.actionPanelDescription}</p>
+                <div className="distinct-token-picker">
+                  <div>
+                    <strong>{copy.takeDifferentTitle}</strong>
+                    <p>{copy.takeDifferentDescription}</p>
+                  </div>
+                  <div className="gem-select-grid">
+                    {BONUS_COLORS.map((color) => {
+                      const selected = selectedDistinctColorSet.has(color);
+                      const unavailable = (gameState?.gemSupply[color] ?? 0) <= 0;
+                      return (
+                        <button
+                          className={`gem-select-button bonus-${color}${selected ? ' selected' : ''}`}
+                          key={`distinct-${color}`}
+                          disabled={!isLocalPlayersTurn || unavailable || (!selected && selectedDistinctColors.length >= 3)}
+                          onClick={() => toggleDistinctColor(color)}
+                        >
+                          <span>{tokenLabels[color]}</span>
+                          <strong>{gameState?.gemSupply[color] ?? 0}</strong>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="distinct-token-actions">
+                    <span>{copy.selectedDifferentGems(selectedDistinctColors.length)}</span>
+                    <div className="card-actions">
+                      <button
+                        className="secondary"
+                        disabled={selectedDistinctColors.length === 0}
+                        onClick={() => setSelectedDistinctColors([])}
+                      >
+                        {copy.clearSelection}
+                      </button>
+                      <button disabled={!canSubmitDistinctTake} onClick={submitDistinctTake}>
+                        {copy.submitDifferentGems(selectedDistinctColors.length)}
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div className="action-grid">
-                  <button
-                    disabled={!isLocalPlayersTurn || availableColors.length < 1}
-                    onClick={() =>
-                      queueAction(
-                        {
-                          type: 'take_three_distinct_tokens',
-                          colors: availableColors.slice(0, 3)
-                        },
-                        copy.takeDifferent(Math.min(3, availableColors.length))
-                      )
-                    }
-                  >
-                    {copy.takeDifferent(Math.min(3, availableColors.length || 3))}
-                  </button>
-                  <button
-                    disabled={!isLocalPlayersTurn || availableColors.length < 1}
-                    onClick={() =>
-                      queueAction(
-                        {
-                          type: 'take_three_distinct_tokens',
-                          colors: availableColors.slice(0, 2)
-                        },
-                        copy.takeDifferent(Math.min(2, availableColors.length))
-                      )
-                    }
-                  >
-                    {copy.takeDifferent(Math.min(2, availableColors.length || 2))}
-                  </button>
-                  <button
-                    disabled={!isLocalPlayersTurn || availableColors.length < 1}
-                    onClick={() =>
-                      queueAction(
-                        {
-                          type: 'take_three_distinct_tokens',
-                          colors: availableColors.slice(0, 1)
-                        },
-                        copy.takeDifferent(1)
-                      )
-                    }
-                  >
-                    {copy.takeDifferent(1)}
-                  </button>
                   {BONUS_COLORS.map((color) => (
                     <button
                       key={`double-${color}`}

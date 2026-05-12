@@ -160,6 +160,34 @@ function verifyTakeDifferentTokensAction() {
   assert.equal(state.currentPlayerIndex, 1);
 }
 
+function verifyTakeDifferentTokensValidation() {
+  const state = initializeGame(createRoom(3));
+  const activePlayer = state.players[0];
+
+  assert.throws(() =>
+    applyGameAction(state, activePlayer.id, {
+      type: 'take_three_distinct_tokens',
+      colors: ['diamond', 'diamond']
+    })
+  );
+
+  assert.equal(state.players[0].tokens.diamond, 0);
+  assert.equal(state.gemSupply.diamond, TOKEN_SUPPLY_BY_PLAYER_COUNT[3]);
+  assert.equal(state.currentPlayerIndex, 0);
+
+  state.gemSupply.sapphire = 0;
+  assert.throws(() =>
+    applyGameAction(state, activePlayer.id, {
+      type: 'take_three_distinct_tokens',
+      colors: ['sapphire']
+    })
+  );
+
+  assert.equal(state.players[0].tokens.sapphire, 0);
+  assert.equal(state.gemSupply.sapphire, 0);
+  assert.equal(state.currentPlayerIndex, 0);
+}
+
 function verifyTakeTwoSameTokensValidation() {
   const state = initializeGame(createRoom(2));
   const activePlayer = state.players[0];
@@ -310,6 +338,41 @@ function verifyPurchaseCardAction() {
   assert.equal(state.currentPlayerIndex, 1);
 }
 
+function verifyInvalidActionDoesNotMutateState() {
+  const state = initializeGame(createRoom(3));
+  const activePlayer = state.players[0];
+  const visibleCard = state.visibleCards.level1[0];
+
+  assert.throws(() =>
+    applyGameAction(state, activePlayer.id, {
+      type: 'take_three_distinct_tokens',
+      colors: ['diamond'],
+      returnedTokens: {
+        diamond: 1
+      }
+    })
+  );
+
+  assert.equal(state.players[0].tokens.diamond, 0);
+  assert.equal(state.gemSupply.diamond, TOKEN_SUPPLY_BY_PLAYER_COUNT[3]);
+  assert.equal(state.currentPlayerIndex, 0);
+  assert.equal(state.log.length, 0);
+
+  assert.throws(() =>
+    applyGameAction(state, activePlayer.id, {
+      type: 'purchase_card',
+      level: 1,
+      cardId: visibleCard.id,
+      source: 'board'
+    })
+  );
+
+  assert.equal(state.visibleCards.level1[0].id, visibleCard.id);
+  assert.equal(state.players[0].purchasedCards.length, 0);
+  assert.equal(state.currentPlayerIndex, 0);
+  assert.equal(state.log.length, 0);
+}
+
 function verifyNobleClaimAndFinalRound() {
   const state = initializeGame(createRoom(2));
   const activePlayer = state.players[0];
@@ -383,6 +446,7 @@ async function verifyLobbySessionResume() {
   const address = server.address() as AddressInfo;
   const url = `http://127.0.0.1:${address.port}`;
   const clientId = 'verify-client-reconnect';
+  const guestClientId = 'verify-guest-client';
 
   const firstSocket = await createConnectedSocket(url);
   const joinedPromise = waitForSocketEvent<{ room: Room; player: { id: string } }>(
@@ -399,6 +463,17 @@ async function verifyLobbySessionResume() {
   const playerId = joined.player.id;
   const roomId = joined.room.id;
 
+  const guestSocket = await createConnectedSocket(url);
+  const guestJoinedPromise = waitForSocketEvent<{ room: Room; player: { id: string } }>(
+    guestSocket,
+    'room-joined'
+  );
+  guestSocket.emit('join-room', roomId, {
+    name: 'Guest',
+    clientId: guestClientId
+  });
+  await guestJoinedPromise;
+
   firstSocket.disconnect();
 
   const resumedSocket = await createConnectedSocket(url);
@@ -406,16 +481,23 @@ async function verifyLobbySessionResume() {
     resumedSocket,
     'session-resumed'
   );
+  const guestRoomUpdatedPromise = waitForSocketEvent<Room>(guestSocket, 'room-updated');
   resumedSocket.emit('resume-session', { roomId, clientId });
   const resumed = await resumedPromise;
+  const guestUpdatedRoom = await guestRoomUpdatedPromise;
 
   assert.equal(resumed.playerId, playerId);
   assert.equal(resumed.room.id, roomId);
   assert.equal(resumed.room.players[0].id, playerId);
   assert.equal(resumed.room.players[0].connectionState, 'connected');
   assert.equal(resumed.room.status, 'open');
+  assert.equal(
+    guestUpdatedRoom.players.find((player) => player.id === playerId)?.connectionState,
+    'connected'
+  );
 
   resumedSocket.disconnect();
+  guestSocket.disconnect();
   await new Promise<void>((resolve, reject) => {
     server.close((error) => {
       if (error) {
@@ -433,18 +515,20 @@ async function main() {
   verifySetup(3);
   verifySetup(4);
   verifyTakeDifferentTokensAction();
+  verifyTakeDifferentTokensValidation();
   verifyTakeTwoSameTokensValidation();
   verifyReserveCardAction();
   verifyOverflowRequiresReturn();
   verifyOverflowReturnAction();
   verifyHiddenInformationProjection();
   verifyPurchaseCardAction();
+  verifyInvalidActionDoesNotMutateState();
   verifyNobleClaimAndFinalRound();
   await verifyLobbySessionResume();
 
   console.log('Splendor base data verified.');
   console.log(
-    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, hidden information projection, and lobby session recovery.'
+    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, invalid-action rollback, hidden information projection, and lobby session recovery.'
   );
 }
 

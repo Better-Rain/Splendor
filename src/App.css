@@ -331,9 +331,70 @@ button.secondary {
   gap: 12px;
 }
 
+.distinct-token-picker {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.distinct-token-picker p {
+  margin: 4px 0 0;
+}
+
+.gem-select-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gem-select-button {
+  display: grid;
+  gap: 6px;
+  min-height: 76px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  padding: 10px;
+  color: var(--ink-strong);
+  background: rgba(255, 255, 255, 0.68);
+  text-align: left;
+}
+
+.gem-select-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.gem-select-button.selected {
+  border-color: rgba(167, 130, 63, 0.72);
+  box-shadow: inset 0 0 0 2px rgba(167, 130, 63, 0.18);
+}
+
+.gem-select-button span {
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+
+.gem-select-button strong {
+  font-size: 1.15rem;
+}
+
+.distinct-token-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.distinct-token-actions > span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
 .action-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
 .market-columns {
@@ -520,7 +581,13 @@ button.secondary {
   .token-grid,
   .summary-stats,
   .market-stats,
-  .action-grid {
+  .action-grid,
+  .gem-select-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .distinct-token-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

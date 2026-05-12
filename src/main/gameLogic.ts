@@ -57,6 +57,88 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function cloneBonusMap(map: BonusMap): BonusMap {
+  return {
+    diamond: map.diamond,
+    sapphire: map.sapphire,
+    emerald: map.emerald,
+    ruby: map.ruby,
+    onyx: map.onyx
+  };
+}
+
+function cloneTokenSupply(tokens: TokenSupply): TokenSupply {
+  return {
+    diamond: tokens.diamond,
+    sapphire: tokens.sapphire,
+    emerald: tokens.emerald,
+    ruby: tokens.ruby,
+    onyx: tokens.onyx,
+    gold: tokens.gold
+  };
+}
+
+function cloneCard(card: Card): Card {
+  return {
+    ...card,
+    cost: cloneBonusMap(card.cost)
+  };
+}
+
+function cloneNoble(noble: Noble): Noble {
+  return {
+    ...noble,
+    requirement: cloneBonusMap(noble.requirement)
+  };
+}
+
+function cloneReservedCard(reservedCard: ReservedCard): ReservedCard {
+  return {
+    ...reservedCard,
+    card: reservedCard.card ? cloneCard(reservedCard.card) : null
+  };
+}
+
+function cloneGameState(state: GameState): GameState {
+  return {
+    ...state,
+    players: state.players.map((player) => ({
+      ...player,
+      tokens: cloneTokenSupply(player.tokens),
+      bonuses: cloneBonusMap(player.bonuses),
+      purchasedCards: player.purchasedCards.map(cloneCard),
+      reservedCards: player.reservedCards.map(cloneReservedCard),
+      nobles: player.nobles.map(cloneNoble)
+    })),
+    gemSupply: cloneTokenSupply(state.gemSupply),
+    decks: {
+      level1: state.decks.level1.map(cloneCard),
+      level2: state.decks.level2.map(cloneCard),
+      level3: state.decks.level3.map(cloneCard)
+    },
+    visibleCards: {
+      level1: state.visibleCards.level1.map(cloneCard),
+      level2: state.visibleCards.level2.map(cloneCard),
+      level3: state.visibleCards.level3.map(cloneCard)
+    },
+    nobles: state.nobles.map(cloneNoble),
+    winnerIds: [...state.winnerIds],
+    log: state.log.map((entry) => ({
+      ...entry,
+      details: entry.details
+        ? {
+            ...entry.details,
+            colors: entry.details.colors ? [...entry.details.colors] : undefined
+          }
+        : undefined
+    }))
+  };
+}
+
+function restoreGameState(target: GameState, snapshot: GameState): void {
+  Object.assign(target, snapshot);
+}
+
 function totalTokens(tokens: TokenSupply): number {
   return Object.values(tokens).reduce((sum, count) => sum + count, 0);
 }
@@ -490,27 +572,34 @@ export function initializeGame(room: Room): GameState {
 }
 
 export function applyGameAction(state: GameState, playerId: string, action: GameAction): GameState {
-  const player = assertActivePlayer(state, playerId);
+  const snapshot = cloneGameState(state);
 
-  switch (action.type) {
-    case 'take_three_distinct_tokens':
-      applyTakeThreeDistinctTokens(state, player, action);
-      break;
-    case 'take_two_same_tokens':
-      applyTakeTwoSameTokens(state, player, action);
-      break;
-    case 'reserve_card':
-      applyReserveCard(state, player, action);
-      break;
-    case 'purchase_card':
-      applyPurchaseCard(state, player, action);
-      break;
-    case 'claim_noble':
-      throw new GameRuleError('Nobles are claimed automatically at the end of a purchase turn.');
-    default:
-      throw new GameRuleError('Unknown game action.');
+  try {
+    const player = assertActivePlayer(state, playerId);
+
+    switch (action.type) {
+      case 'take_three_distinct_tokens':
+        applyTakeThreeDistinctTokens(state, player, action);
+        break;
+      case 'take_two_same_tokens':
+        applyTakeTwoSameTokens(state, player, action);
+        break;
+      case 'reserve_card':
+        applyReserveCard(state, player, action);
+        break;
+      case 'purchase_card':
+        applyPurchaseCard(state, player, action);
+        break;
+      case 'claim_noble':
+        throw new GameRuleError('Nobles are claimed automatically at the end of a purchase turn.');
+      default:
+        throw new GameRuleError('Unknown game action.');
+    }
+
+    finalizeIfNeeded(state, player);
+    return state;
+  } catch (error) {
+    restoreGameState(state, snapshot);
+    throw error;
   }
-
-  finalizeIfNeeded(state, player);
-  return state;
 }
