@@ -64,4 +64,6 @@ For phone testing, the common failure cases are:
 - Windows Firewall blocks inbound Node.js connections on the current network profile.
 - The URL uses `localhost` instead of the host computer LAN IP.
 
-In development, the Socket.IO host server is started by `npm run start:server`. The Electron shell does not start a second embedded server, so `npm run dev` should not produce a `3001 EADDRINUSE` error. Packaged Electron builds still start their own embedded host server.
+In development, the Socket.IO host server is started by `npm run start:server`. The Electron shell does not start a second embedded server, and the server watcher ignores local host snapshots, so `npm run dev` should not produce a `3001 EADDRINUSE` error. Packaged Electron builds still start their own embedded host server.
+
+The Socket.IO server accepts `file://`, `localhost`, and private LAN origins. If the browser console reports an `Access-Control-Allow-Origin: file://` mismatch, stop the stale process on `3001` with `npm run dev:reset` and restart `npm run dev`.

@@ -21,7 +21,7 @@ import {
 } from '../shared/baseSet';
 import { GameState, Room } from '../shared/types';
 import { applyGameAction, initializeGame } from './gameLogic';
-import { projectGameStateForViewer, startServer } from './server';
+import { isAllowedClientOrigin, projectGameStateForViewer, startServer } from './server';
 
 const EXPECTED_BASE_SET_HASH = 'db2f636f82d0df543a9e860e3cce449e3ccece67e24658654707d58a2c44938c';
 
@@ -91,6 +91,31 @@ function verifyBaseSet() {
   });
   const hash = createHash('sha256').update(normalized).digest('hex');
   assert.equal(hash, EXPECTED_BASE_SET_HASH, 'Base set hash changed unexpectedly.');
+}
+
+function verifyServerCorsOrigins() {
+  const previousNodeEnv = process.env.NODE_ENV;
+
+  try {
+    process.env.NODE_ENV = 'production';
+
+    assert.equal(isAllowedClientOrigin(undefined), true);
+    assert.equal(isAllowedClientOrigin('file://'), true);
+    assert.equal(isAllowedClientOrigin('http://localhost:3000'), true);
+    assert.equal(isAllowedClientOrigin('http://127.0.0.1:3000'), true);
+    assert.equal(isAllowedClientOrigin('http://192.168.1.4:3000'), true);
+    assert.equal(isAllowedClientOrigin('http://172.16.0.2:3000'), true);
+    assert.equal(isAllowedClientOrigin('https://example.com'), false);
+
+    process.env.NODE_ENV = 'development';
+    assert.equal(isAllowedClientOrigin('https://example.com'), true);
+  } finally {
+    if (previousNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  }
 }
 
 function verifySetup(playerCount: 2 | 3 | 4) {
@@ -809,6 +834,7 @@ async function verifyHostSnapshotRecovery() {
 
 async function main() {
   verifyBaseSet();
+  verifyServerCorsOrigins();
   verifySetup(2);
   verifySetup(3);
   verifySetup(4);

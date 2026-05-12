@@ -156,6 +156,8 @@ Current UI is too saturated and generic. The target style is:
 - [x] Add focused in-game view switching with subtle transition animation.
 - [x] Add development port cleanup for stale local Vite and host-server processes.
 - [x] Separate the development Socket.IO server from the Electron embedded server to avoid duplicate port 3001 listeners.
+- [x] Harden Socket.IO LAN CORS handling for `file://`, localhost, and private LAN browser clients.
+- [x] Restrict the development server watcher so host snapshot writes do not restart the server and race port `3001`.
 
 ## Notes On Card Data
 

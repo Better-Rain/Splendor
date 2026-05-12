@@ -52,6 +52,41 @@ interface HostSnapshot {
 const LOBBY_RECONNECT_WINDOW_MS = 120000;
 const SNAPSHOT_VERSION = 1;
 
+function isPrivateIpv4Address(hostname: string): boolean {
+  const parts = hostname.split('.').map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+
+  const [first, second] = parts;
+  return first === 10 || (first === 172 && second >= 16 && second <= 31) || (first === 192 && second === 168);
+}
+
+export function isAllowedClientOrigin(origin?: string): boolean {
+  if (!origin || origin === 'file://') {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    const hostname = parsed.hostname.toLowerCase();
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '[::1]' ||
+      isPrivateIpv4Address(hostname) ||
+      process.env.NODE_ENV === 'development'
+    );
+  } catch {
+    return false;
+  }
+}
+
 function now(): string {
   return new Date().toISOString();
 }
@@ -286,7 +321,9 @@ export function startServer(options: StartServerOptions = {}) {
   const snapshotPath = options.snapshotPath === null ? null : options.snapshotPath ?? getDefaultSnapshotPath();
   const io = new Server(server, {
     cors: {
-      origin: process.env.NODE_ENV === 'development' ? true : 'file://',
+      origin(origin, callback) {
+        callback(null, isAllowedClientOrigin(origin));
+      },
       methods: ['GET', 'POST']
     }
   });

@@ -181,8 +181,9 @@ for (const [port, pids] of occupiedPorts.entries()) {
     }
 
     const killPid = resolveKillTarget(pid, protectedPids);
-    const commandLine = getCommandLine(killPid);
-    const projectProcess = isProjectProcess(commandLine);
+    const processCommandLine = getCommandLine(pid);
+    const commandLine = getCommandLine(killPid) || processCommandLine;
+    const projectProcess = isProjectProcess(processCommandLine) || isProjectProcess(commandLine);
     blockers.push({ port, pid, killPid, commandLine, projectProcess });
   }
 }

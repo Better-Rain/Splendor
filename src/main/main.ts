@@ -21,16 +21,12 @@ function createWindow() {
         icon: path.join(__dirname, '../../assets/icon.png')
     });
 
-    // 开发环境加载本地服务器
-      if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development') {
         mainWindow.loadURL('http://localhost:3000');
         mainWindow.webContents.openDevTools();
-      } else {
+    } else {
         mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-      }
-
-    // mainWindow.loadURL('http://localhost:3000');
-    // mainWindow.webContents.openDevTools();
+    }
 
     mainWindow.on('closed', () => {
         mainWindow = null;
@@ -38,11 +34,12 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-    // 启动游戏服务器
     if (shouldStartEmbeddedServer()) {
         server = startServer({
             snapshotPath: path.join(app.getPath('userData'), 'host-snapshot.json')
         });
+    } else if (process.env.NODE_ENV === 'development') {
+        console.log('Skipping embedded game server in development.');
     }
 
     createWindow();
