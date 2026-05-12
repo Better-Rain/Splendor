@@ -631,3 +631,7 @@ export function startServer(options: StartServerOptions = {}) {
 function generateRoomId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
+
+if (require.main === module) {
+  startServer();
+}
