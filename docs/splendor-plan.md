@@ -155,6 +155,7 @@ Current UI is too saturated and generic. The target style is:
 - [x] Add clearer action-log presentation with localized action categories and important turn events.
 - [x] Add focused in-game view switching with subtle transition animation.
 - [x] Add development port cleanup for stale local Vite and host-server processes.
+- [x] Separate the development Socket.IO server from the Electron embedded server to avoid duplicate port 3001 listeners.
 
 ## Notes On Card Data
 

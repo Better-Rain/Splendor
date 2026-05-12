@@ -5,6 +5,10 @@ import { startServer } from './server';
 let mainWindow: BrowserWindow | null = null;
 let server: any = null;
 
+function shouldStartEmbeddedServer(): boolean {
+    return process.env.SPLENDOR_EMBED_SERVER !== 'false';
+}
+
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1200,
@@ -35,9 +39,11 @@ function createWindow() {
 
 app.whenReady().then(() => {
     // 启动游戏服务器
-    server = startServer({
-        snapshotPath: path.join(app.getPath('userData'), 'host-snapshot.json')
-    });
+    if (shouldStartEmbeddedServer()) {
+        server = startServer({
+            snapshotPath: path.join(app.getPath('userData'), 'host-snapshot.json')
+        });
+    }
 
     createWindow();
 

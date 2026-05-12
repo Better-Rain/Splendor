@@ -63,3 +63,5 @@ For phone testing, the common failure cases are:
 - The router has AP isolation/client isolation enabled.
 - Windows Firewall blocks inbound Node.js connections on the current network profile.
 - The URL uses `localhost` instead of the host computer LAN IP.
+
+In development, the Socket.IO host server is started by `npm run start:server`. The Electron shell does not start a second embedded server, so `npm run dev` should not produce a `3001 EADDRINUSE` error. Packaged Electron builds still start their own embedded host server.
