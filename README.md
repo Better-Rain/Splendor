@@ -4,23 +4,25 @@ splendor-electron
 ├─ assets
 ├─ database
 ├─ electron-builder.json
+├─ index.html
 ├─ package-lock.json
 ├─ package.json
-├─ public
-│  └─ index.html
 ├─ README.md
 ├─ src
+│  ├─ App.css
+│  ├─ App.tsx
+│  ├─ index.css
+│  ├─ index.tsx
 │  ├─ main
+│  │  ├─ gameLogic.ts
 │  │  ├─ main.ts
 │  │  ├─ preload.ts
-│  │  └─ server.ts
-│  ├─ renderer
-│  │  ├─ App.css
-│  │  ├─ App.tsx
-│  │  └─ index.tsx
+│  │  ├─ server.ts
+│  │  └─ verifySplendorData.ts
 │  └─ shared
 ├─ tsconfig.json
 ├─ tsconfig.main.json
-└─ tsconfig.renderer.json
+├─ tsconfig.renderer.json
+└─ vite.config.ts
 
 ```

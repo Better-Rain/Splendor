@@ -110,13 +110,39 @@ Current UI is too saturated and generic. The target style is:
 - Add action log, undo-safe debug tools, and packaged build polish.
 - Add automated rules tests.
 
+## Remaining Roadmap
+
+### Gameplay Polish
+
+- Let the active player choose between multiple eligible nobles instead of automatically taking the first one.
+- Add clearer card readability: localized gem labels, compact cost badges, and visible affordability hints.
+- Add end-of-game summary details: final scores, purchased-card tie breaker, and shared winners.
+
+### LAN Reliability
+
+- Keep the current host-authoritative model, but document the explicit host-only room lifetime.
+- Add a room recovery panel for restored rooms, including disconnected players and snapshot age.
+- Add manual leave-room and close-room controls so stale rooms do not linger.
+
+### Tooling And Packaging
+
+- Finish renderer migration from CRA/react-scripts to Vite and keep build checks green.
+- Add a production smoke check for the built Electron renderer.
+- Tighten package metadata, icon handling, and installer output naming.
+
+### Test Coverage
+
+- Split the large verification script into focused rules, server, and snapshot checks.
+- Add socket-level tests for game actions from the wrong player, disconnected players, and stale room IDs.
+- Add renderer smoke tests once the Vite migration is complete.
+
 ## Immediate Work Ordered For This Repository
 
 - [x] Write the plan and store it in the repository.
 - [x] Clean up the shared game model and room state shape.
 - [x] Replace the current flashy lobby shell with a calmer baseline UI.
 - [x] Improve room synchronization so the UI can evolve without fragile alert logic.
-- [ ] Migrate renderer tooling from CRA to Vite.
+- [x] Migrate renderer tooling from CRA to Vite.
 - [x] Replace placeholder card generation with the complete official base deck.
 - [x] Implement core action validation and turn resolution.
 - [x] Add tests for setup and token rules.
