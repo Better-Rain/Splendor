@@ -65,6 +65,11 @@ export interface TurnLogEntry {
   details?: TurnLogDetails;
 }
 
+export interface PendingNobleClaim {
+  playerId: string;
+  nobleIds: string[];
+}
+
 export interface GameState {
   roomId: string;
   players: GamePlayer[];
@@ -73,6 +78,7 @@ export interface GameState {
   turnNumber: number;
   targetScore: number;
   finalRoundStartsAtPlayerId: string | null;
+  pendingNobleClaim: PendingNobleClaim | null;
   gemSupply: TokenSupply;
   decks: {
     level1: Card[];

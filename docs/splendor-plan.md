@@ -114,7 +114,6 @@ Current UI is too saturated and generic. The target style is:
 
 ### Gameplay Polish
 
-- Let the active player choose between multiple eligible nobles instead of automatically taking the first one.
 - Add clearer card readability: localized gem labels, compact cost badges, and visible affordability hints.
 - Add end-of-game summary details: final scores, purchased-card tie breaker, and shared winners.
 
@@ -149,10 +148,11 @@ Current UI is too saturated and generic. The target style is:
 - [x] Roll back failed rule actions so stale or invalid client intents cannot corrupt host state.
 - [x] Persist host room snapshots locally so sessions can resume after the host process restarts.
 - [x] Add manual leave-room and host close-room controls.
+- [x] Let the active player choose between multiple eligible nobles.
 
 ## Notes On Card Data
 
-The repository now includes the full base-game development deck and noble tiles in `src/shared/baseSet.ts`. The verification script checks card counts, point distribution, a stable base-set hash, setup rules, core actions, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot recovery.
+The repository now includes the full base-game development deck and noble tiles in `src/shared/baseSet.ts`. The verification script checks card counts, point distribution, a stable base-set hash, setup rules, core actions, multiple-noble choice, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot recovery.
 
 ## References
 

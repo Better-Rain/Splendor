@@ -94,6 +94,12 @@ function normalizeLoadedRoom(room: Room): Room {
     gameState: room.gameState
       ? {
           ...room.gameState,
+          pendingNobleClaim: room.gameState.pendingNobleClaim
+            ? {
+                playerId: room.gameState.pendingNobleClaim.playerId,
+                nobleIds: [...room.gameState.pendingNobleClaim.nobleIds]
+              }
+            : null,
           players: room.gameState.players.map((player) => ({
             ...player,
             connectionState: 'disconnected'
@@ -219,6 +225,12 @@ export function projectGameStateForViewer(state: GameState, viewerPlayerId: stri
       ),
       nobles: player.nobles.map(cloneNoble)
     })),
+    pendingNobleClaim: state.pendingNobleClaim
+      ? {
+          playerId: state.pendingNobleClaim.playerId,
+          nobleIds: [...state.pendingNobleClaim.nobleIds]
+        }
+      : null,
     decks: {
       level1: createHiddenDeck(1, state.decks.level1.length),
       level2: createHiddenDeck(2, state.decks.level2.length),

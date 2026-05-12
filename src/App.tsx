@@ -14,6 +14,7 @@ import {
   GameAction,
   GamePlayer,
   GameState,
+  Noble,
   Room,
   TokenSelection,
   TokenSupply,
@@ -113,6 +114,11 @@ const UI_COPY = {
     totalTokens: '宝石总数',
     bonuses: '奖励',
     nobles: '贵族',
+    nobleRequirement: '需求',
+    chooseNobleTitle: '选择贵族',
+    chooseNobleDescription: '你本回合同时满足多个贵族，请选择其中一位来拜访。选择后回合才会结束。',
+    waitingForNobleChoice: (name: string) => `等待 ${name} 选择贵族。`,
+    claimNoble: (id: string) => `选择 ${id}`,
     gold: '黄金',
     tokenUnit: '枚',
     bonusUnit: '奖励',
@@ -175,7 +181,7 @@ const UI_COPY = {
     knownGapsTitle: '当前原型缺口',
     knownGaps: [
       '暂不支持房主迁移；原房主仍是唯一权威主机。',
-      '如果同时满足多个贵族，目前会自动拿第一个可选贵族。'
+      '进行中普通玩家离开或投降的规则还没有定义。'
     ],
     returnPanelTitle: '归还宝石',
     returnPanelDescription: (overflow: number) =>
@@ -252,6 +258,11 @@ const UI_COPY = {
     totalTokens: 'Total tokens',
     bonuses: 'Bonuses',
     nobles: 'Nobles',
+    nobleRequirement: 'Requirement',
+    chooseNobleTitle: 'Choose noble',
+    chooseNobleDescription: 'You qualified for multiple nobles this turn. Choose one visitor before the turn ends.',
+    waitingForNobleChoice: (name: string) => `Waiting for ${name} to choose a noble.`,
+    claimNoble: (id: string) => `Choose ${id}`,
     gold: 'Gold',
     tokenUnit: 'tokens',
     bonusUnit: 'bonus',
@@ -314,7 +325,7 @@ const UI_COPY = {
     knownGapsTitle: 'Known prototype gaps',
     knownGaps: [
       'Host migration is not implemented; the original host remains authoritative.',
-      'If multiple nobles are eligible at once, the first eligible noble is chosen automatically.'
+      'Leaving or conceding during an active match is not defined yet.'
     ],
     returnPanelTitle: 'Return tokens',
     returnPanelDescription: (overflow: number) =>
@@ -451,6 +462,15 @@ function projectTokensAfterAction(
 function formatCardCost(card: Card, tokenLabels: Record<'diamond' | 'sapphire' | 'emerald' | 'ruby' | 'onyx' | 'gold', string>) {
   return BONUS_COLORS.filter((color) => card.cost[color] > 0)
     .map((color) => `${tokenLabels[color]} ${card.cost[color]}`)
+    .join(' | ');
+}
+
+function formatNobleRequirement(
+  noble: { requirement: Record<BonusColor, number> },
+  tokenLabels: Record<'diamond' | 'sapphire' | 'emerald' | 'ruby' | 'onyx' | 'gold', string>
+) {
+  return BONUS_COLORS.filter((color) => noble.requirement[color] > 0)
+    .map((color) => `${tokenLabels[color]} ${noble.requirement[color]}`)
     .join(' | ');
 }
 
@@ -730,11 +750,26 @@ const App: React.FC = () => {
   const localTokenCount = localGamePlayer ? totalTokens(localGamePlayer.tokens) : 0;
   const canLeaveRoom = !!currentRoom && !!localRoomPlayer && !localRoomPlayer.isHost && currentRoom.status !== 'in_game';
   const canCloseRoom = !!currentRoom && !!localRoomPlayer?.isHost;
+  const pendingNobleClaim = gameState?.pendingNobleClaim ?? null;
+  const pendingNoblePlayer = pendingNobleClaim
+    ? gameState?.players.find((player) => player.id === pendingNobleClaim.playerId) ?? null
+    : null;
+  const pendingNobleOptions = useMemo(
+    () =>
+      pendingNobleClaim && gameState
+        ? pendingNobleClaim.nobleIds
+            .map((nobleId) => gameState.nobles.find((noble) => noble.id === nobleId) ?? null)
+            .filter((noble): noble is Noble => !!noble)
+        : [],
+    [gameState, pendingNobleClaim]
+  );
+  const isLocalNobleChoice = !!pendingNobleClaim && pendingNobleClaim.playerId === localPlayerId;
   const isLocalPlayersTurn = !!(
     gameState &&
     localGamePlayer &&
     activePlayer &&
     localGamePlayer.id === activePlayer.id &&
+    !pendingNobleClaim &&
     gameState.phase !== 'finished'
   );
   const winners = useMemo(
@@ -942,6 +977,16 @@ const App: React.FC = () => {
       copy.takeDifferent(selectedDistinctColors.length)
     );
     setSelectedDistinctColors([]);
+  };
+
+  const submitNobleClaim = (nobleId: string) => {
+    submitAction(
+      {
+        type: 'claim_noble',
+        nobleId
+      },
+      copy.claimNoble(nobleId)
+    );
   };
 
   const confirmPendingReturnAction = () => {
@@ -1262,6 +1307,36 @@ const App: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {pendingNobleClaim && (
+                <div className="summary-card noble-choice-panel">
+                  <h3>{copy.chooseNobleTitle}</h3>
+                  <p>
+                    {isLocalNobleChoice
+                      ? copy.chooseNobleDescription
+                      : copy.waitingForNobleChoice(pendingNoblePlayer?.name ?? 'Player')}
+                  </p>
+                  <div className="noble-choice-grid">
+                    {pendingNobleOptions.map((noble) => (
+                      <div className="noble-choice-card" key={noble.id}>
+                        <div>
+                          <strong>{noble.id}</strong>
+                          <span>
+                            {noble.points} {copy.prestige} | {copy.nobleRequirement}:{' '}
+                            {formatNobleRequirement(noble, tokenLabels)}
+                          </span>
+                        </div>
+                        <button
+                          disabled={!isLocalNobleChoice}
+                          onClick={() => submitNobleClaim(noble.id)}
+                        >
+                          {copy.claimNoble(noble.id)}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {pendingReturnAction && (
                 <div className="summary-card return-panel">

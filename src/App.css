@@ -487,6 +487,39 @@ button.danger:hover:not(:disabled) {
   border-color: rgba(167, 130, 63, 0.24);
 }
 
+.noble-choice-panel {
+  border-color: rgba(167, 130, 63, 0.36);
+  background: rgba(255, 248, 232, 0.82);
+}
+
+.noble-choice-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.noble-choice-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--line-soft);
+}
+
+.noble-choice-card strong,
+.noble-choice-card span {
+  display: block;
+}
+
+.noble-choice-card span {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
 .return-summary,
 .helper-note {
   font-size: 0.9rem;
@@ -575,7 +608,8 @@ button.danger:hover:not(:disabled) {
   .app-header,
   .room-meta,
   .player-row,
-  .player-list li {
+  .player-list li,
+  .noble-choice-card {
     flex-direction: column;
     align-items: stretch;
   }

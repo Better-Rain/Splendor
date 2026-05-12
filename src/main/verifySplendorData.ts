@@ -411,6 +411,60 @@ function verifyNobleClaimAndFinalRound() {
   assert.deepEqual(state.winnerIds, [activePlayer.id]);
 }
 
+function verifyMultipleNobleChoice() {
+  const state = initializeGame(createRoom(2));
+  const activePlayer = state.players[0];
+  const firstNoble = BASE_NOBLES[0];
+  const secondNoble = BASE_NOBLES[1];
+  const cardToBuy = state.visibleCards.level1[0];
+
+  state.nobles = [firstNoble, secondNoble];
+  for (const color of ['diamond', 'sapphire', 'emerald', 'ruby', 'onyx'] as const) {
+    activePlayer.bonuses[color] = Math.max(
+      firstNoble.requirement[color],
+      secondNoble.requirement[color]
+    );
+  }
+  fundPlayerForCard(activePlayer, cardToBuy);
+
+  applyGameAction(state, activePlayer.id, {
+    type: 'purchase_card',
+    level: 1,
+    cardId: cardToBuy.id,
+    source: 'board'
+  });
+
+  assert.deepEqual(state.pendingNobleClaim, {
+    playerId: activePlayer.id,
+    nobleIds: [firstNoble.id, secondNoble.id]
+  });
+  assert.equal(activePlayer.nobles.length, 0);
+  assert.equal(state.currentPlayerIndex, 0);
+
+  assert.throws(() =>
+    applyGameAction(state, activePlayer.id, {
+      type: 'take_three_distinct_tokens',
+      colors: ['diamond']
+    })
+  );
+
+  assert.deepEqual(state.pendingNobleClaim?.nobleIds, [firstNoble.id, secondNoble.id]);
+  assert.equal(state.currentPlayerIndex, 0);
+
+  applyGameAction(state, activePlayer.id, {
+    type: 'claim_noble',
+    nobleId: secondNoble.id
+  });
+
+  const updatedActivePlayer = state.players[0];
+  assert.equal(state.pendingNobleClaim, null);
+  assert.equal(updatedActivePlayer.nobles.length, 1);
+  assert.equal(updatedActivePlayer.nobles[0].id, secondNoble.id);
+  assert.equal(state.nobles.length, 1);
+  assert.equal(state.nobles[0].id, firstNoble.id);
+  assert.equal(state.currentPlayerIndex, 1);
+}
+
 function waitForSocketEvent<T>(socket: Socket, event: string, timeoutMs = 5000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -720,13 +774,14 @@ async function main() {
   verifyPurchaseCardAction();
   verifyInvalidActionDoesNotMutateState();
   verifyNobleClaimAndFinalRound();
+  verifyMultipleNobleChoice();
   await verifyLobbySessionResume();
   await verifyRoomLifecycleControls();
   await verifyHostSnapshotRecovery();
 
   console.log('Splendor base data verified.');
   console.log(
-    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot restore.'
+    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, multiple-noble choice, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot restore.'
   );
 }
 

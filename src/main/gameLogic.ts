@@ -111,6 +111,12 @@ function cloneGameState(state: GameState): GameState {
       nobles: player.nobles.map(cloneNoble)
     })),
     gemSupply: cloneTokenSupply(state.gemSupply),
+    pendingNobleClaim: state.pendingNobleClaim
+      ? {
+          playerId: state.pendingNobleClaim.playerId,
+          nobleIds: [...state.pendingNobleClaim.nobleIds]
+        }
+      : null,
     decks: {
       level1: state.decks.level1.map(cloneCard),
       level2: state.decks.level2.map(cloneCard),
@@ -360,13 +366,16 @@ function payForCard(player: GamePlayer, state: GameState, card: Card) {
   }
 }
 
-function claimFirstAvailableNoble(state: GameState, player: GamePlayer): Noble | null {
-  const nobleIndex = state.nobles.findIndex((noble) =>
+function getEligibleNobles(state: GameState, player: GamePlayer): Noble[] {
+  return state.nobles.filter((noble) =>
     BONUS_COLORS.every((color) => player.bonuses[color] >= noble.requirement[color])
   );
+}
 
+function claimNoble(state: GameState, player: GamePlayer, nobleId: string): Noble {
+  const nobleIndex = state.nobles.findIndex((noble) => noble.id === nobleId);
   if (nobleIndex === -1) {
-    return null;
+    throw new GameRuleError('That noble is not available.');
   }
 
   const [noble] = state.nobles.splice(nobleIndex, 1);
@@ -376,6 +385,25 @@ function claimFirstAvailableNoble(state: GameState, player: GamePlayer): Noble |
     nobleId: noble.id
   });
   return noble;
+}
+
+function resolveEligibleNobles(state: GameState, player: GamePlayer): boolean {
+  const eligibleNobles = getEligibleNobles(state, player);
+
+  if (eligibleNobles.length === 0) {
+    return false;
+  }
+
+  if (eligibleNobles.length === 1) {
+    claimNoble(state, player, eligibleNobles[0].id);
+    return false;
+  }
+
+  state.pendingNobleClaim = {
+    playerId: player.id,
+    nobleIds: eligibleNobles.map((noble) => noble.id)
+  };
+  return true;
 }
 
 function finalizeIfNeeded(state: GameState, player: GamePlayer) {
@@ -501,7 +529,7 @@ function applyPurchaseCard(
   state: GameState,
   player: GamePlayer,
   action: Extract<GameAction, { type: 'purchase_card' }>
-) {
+): boolean {
   const card =
     action.source === 'board'
       ? takeBoardCard(state, action.level, action.cardId)
@@ -516,7 +544,26 @@ function applyPurchaseCard(
     cardId: card.id,
     source: action.source
   });
-  claimFirstAvailableNoble(state, player);
+  return resolveEligibleNobles(state, player);
+}
+
+function applyClaimNoble(
+  state: GameState,
+  player: GamePlayer,
+  action: Extract<GameAction, { type: 'claim_noble' }>
+) {
+  const pendingClaim = state.pendingNobleClaim;
+
+  if (!pendingClaim || pendingClaim.playerId !== player.id) {
+    throw new GameRuleError('No noble choice is pending for this player.');
+  }
+
+  if (!pendingClaim.nobleIds.includes(action.nobleId)) {
+    throw new GameRuleError('Choose one of the available nobles.');
+  }
+
+  claimNoble(state, player, action.nobleId);
+  state.pendingNobleClaim = null;
 }
 
 export function generateCards(): { level1: Card[]; level2: Card[]; level3: Card[] } {
@@ -554,6 +601,7 @@ export function initializeGame(room: Room): GameState {
     turnNumber: 1,
     targetScore: TARGET_PRESTIGE_POINTS,
     finalRoundStartsAtPlayerId: null,
+    pendingNobleClaim: null,
     gemSupply: createGemSupply(playerCount),
     decks: {
       level1: level1.slice(VISIBLE_CARDS_PER_LEVEL),
@@ -576,27 +624,43 @@ export function applyGameAction(state: GameState, playerId: string, action: Game
 
   try {
     const player = assertActivePlayer(state, playerId);
+    let shouldFinalize = true;
 
     switch (action.type) {
       case 'take_three_distinct_tokens':
+        if (state.pendingNobleClaim) {
+          throw new GameRuleError('Choose a noble before taking another action.');
+        }
         applyTakeThreeDistinctTokens(state, player, action);
         break;
       case 'take_two_same_tokens':
+        if (state.pendingNobleClaim) {
+          throw new GameRuleError('Choose a noble before taking another action.');
+        }
         applyTakeTwoSameTokens(state, player, action);
         break;
       case 'reserve_card':
+        if (state.pendingNobleClaim) {
+          throw new GameRuleError('Choose a noble before taking another action.');
+        }
         applyReserveCard(state, player, action);
         break;
       case 'purchase_card':
-        applyPurchaseCard(state, player, action);
+        if (state.pendingNobleClaim) {
+          throw new GameRuleError('Choose a noble before taking another action.');
+        }
+        shouldFinalize = !applyPurchaseCard(state, player, action);
         break;
       case 'claim_noble':
-        throw new GameRuleError('Nobles are claimed automatically at the end of a purchase turn.');
+        applyClaimNoble(state, player, action);
+        break;
       default:
         throw new GameRuleError('Unknown game action.');
     }
 
-    finalizeIfNeeded(state, player);
+    if (shouldFinalize) {
+      finalizeIfNeeded(state, player);
+    }
     return state;
   } catch (error) {
     restoreGameState(state, snapshot);
