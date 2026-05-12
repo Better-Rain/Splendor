@@ -148,10 +148,11 @@ Current UI is too saturated and generic. The target style is:
 - [x] Add tests for setup and token rules.
 - [x] Roll back failed rule actions so stale or invalid client intents cannot corrupt host state.
 - [x] Persist host room snapshots locally so sessions can resume after the host process restarts.
+- [x] Add manual leave-room and host close-room controls.
 
 ## Notes On Card Data
 
-The repository now includes the full base-game development deck and noble tiles in `src/shared/baseSet.ts`. The verification script checks card counts, point distribution, a stable base-set hash, setup rules, core actions, invalid-action rollback, hidden information projection, and lobby session recovery.
+The repository now includes the full base-game development deck and noble tiles in `src/shared/baseSet.ts`. The verification script checks card counts, point distribution, a stable base-set hash, setup rules, core actions, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot recovery.
 
 ## References
 

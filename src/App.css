@@ -159,6 +159,14 @@ button.secondary {
   color: var(--ink-strong);
 }
 
+button.danger {
+  background: var(--accent-rust);
+}
+
+button.danger:hover:not(:disabled) {
+  background: #74452e;
+}
+
 .card,
 .summary-card,
 .room-surface {

@@ -489,6 +489,30 @@ export function startServer(options: StartServerOptions = {}) {
     room.updatedAt = now();
   }
 
+  function closeRoom(roomId: string, reason: string) {
+    const room = rooms.get(roomId);
+    if (!room) {
+      return;
+    }
+
+    const memberSockets = getRoomSockets(roomId);
+
+    for (const player of room.players) {
+      removePlayerSession(roomId, player.id);
+    }
+
+    rooms.delete(roomId);
+    roomClientIndex.delete(roomId);
+
+    for (const memberSocket of memberSockets) {
+      clearSocketBindings(memberSocket.id);
+      memberSocket.leave(roomId);
+      memberSocket.emit('room-closed', { roomId, reason });
+    }
+
+    persistSnapshot();
+  }
+
   function cleanupRoomIfEmpty(roomId: string) {
     const room = rooms.get(roomId);
     if (!room) {
@@ -532,7 +556,8 @@ export function startServer(options: StartServerOptions = {}) {
       }
 
       if (room.hostId === playerId) {
-        room.hostId = room.players[0].id;
+        closeRoom(roomId, 'The host left the room.');
+        return;
       }
 
       reseatPlayers(room);
@@ -655,6 +680,64 @@ export function startServer(options: StartServerOptions = {}) {
       if (!options.silent) {
         console.log(`Session resumed for player ${playerId} in room ${roomId}`);
       }
+    });
+
+    socket.on('leave-room', (roomId: string) => {
+      const room = rooms.get(roomId);
+      const playerId = socketToPlayerId.get(socket.id);
+      if (!room || !playerId) {
+        socket.emit('game-error', 'No active room was found for this connection.');
+        return;
+      }
+
+      const player = room.players.find((candidate) => candidate.id === playerId);
+      if (!player) {
+        socket.emit('game-error', 'Player session was not found for this room.');
+        return;
+      }
+
+      if (player.isHost) {
+        closeRoom(room.id, 'The host closed the room.');
+        return;
+      }
+
+      if (room.status === 'in_game') {
+        socket.emit('game-error', 'Leaving an active match is not implemented yet.');
+        return;
+      }
+
+      room.players = room.players.filter((candidate) => candidate.id !== playerId);
+      removePlayerSession(room.id, playerId);
+      clearSocketBindings(socket.id);
+      socket.leave(room.id);
+      socket.emit('room-left', { roomId: room.id });
+
+      if (room.players.length === 0) {
+        cleanupRoomIfEmpty(room.id);
+        return;
+      }
+
+      reseatPlayers(room);
+      updateRoomTimestamp(room);
+      persistSnapshot();
+      emitRoomState(room.id);
+    });
+
+    socket.on('close-room', (roomId: string) => {
+      const room = rooms.get(roomId);
+      const playerId = socketToPlayerId.get(socket.id);
+      if (!room || !playerId) {
+        socket.emit('game-error', 'No active room was found for this connection.');
+        return;
+      }
+
+      const player = room.players.find((candidate) => candidate.id === playerId);
+      if (!player?.isHost) {
+        socket.emit('game-error', 'Only the host can close the room.');
+        return;
+      }
+
+      closeRoom(room.id, 'The host closed the room.');
     });
 
     socket.on('start-game', (roomId: string) => {

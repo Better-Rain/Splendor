@@ -516,6 +516,92 @@ async function verifyLobbySessionResume() {
   await closeServer(server);
 }
 
+async function verifyRoomLifecycleControls() {
+  const server = startServer({ port: 0, silent: true, snapshotPath: null });
+  if (!server.listening) {
+    await once(server, 'listening');
+  }
+
+  const address = server.address() as AddressInfo;
+  const url = `http://127.0.0.1:${address.port}`;
+  const hostClientId = 'lifecycle-host-client';
+  const guestClientId = 'lifecycle-guest-client';
+  const secondGuestClientId = 'lifecycle-second-guest-client';
+
+  const hostSocket = await createConnectedSocket(url);
+  const hostJoinedPromise = waitForSocketEvent<{ room: Room; player: { id: string } }>(
+    hostSocket,
+    'room-joined'
+  );
+  hostSocket.emit('create-room', {
+    roomName: 'Lifecycle Table',
+    playerName: 'Host',
+    clientId: hostClientId
+  });
+  const hostJoined = await hostJoinedPromise;
+  const roomId = hostJoined.room.id;
+  const hostPlayerId = hostJoined.player.id;
+
+  const guestSocket = await createConnectedSocket(url);
+  const hostSawGuestJoinPromise = waitForSocketEvent<Room>(hostSocket, 'room-updated');
+  const guestJoinedPromise = waitForSocketEvent<{ room: Room; player: { id: string } }>(
+    guestSocket,
+    'room-joined'
+  );
+  guestSocket.emit('join-room', roomId, {
+    name: 'Guest',
+    clientId: guestClientId
+  });
+  await guestJoinedPromise;
+  await hostSawGuestJoinPromise;
+
+  const unauthorizedClosePromise = waitForSocketEvent<string>(guestSocket, 'game-error');
+  guestSocket.emit('close-room', roomId);
+  assert.equal(await unauthorizedClosePromise, 'Only the host can close the room.');
+
+  const hostSawGuestLeavePromise = waitForSocketEvent<Room>(hostSocket, 'room-updated');
+  const guestLeftPromise = waitForSocketEvent<{ roomId: string }>(guestSocket, 'room-left');
+  guestSocket.emit('leave-room', roomId);
+  const guestLeft = await guestLeftPromise;
+  const roomAfterLeave = await hostSawGuestLeavePromise;
+
+  assert.equal(guestLeft.roomId, roomId);
+  assert.equal(roomAfterLeave.players.length, 1);
+  assert.equal(roomAfterLeave.players[0].id, hostPlayerId);
+  assert.equal(roomAfterLeave.players[0].isHost, true);
+
+  const hostSawSecondJoinPromise = waitForSocketEvent<Room>(hostSocket, 'room-updated');
+  const secondGuestJoinedPromise = waitForSocketEvent<{ room: Room; player: { id: string } }>(
+    guestSocket,
+    'room-joined'
+  );
+  guestSocket.emit('join-room', roomId, {
+    name: 'Second Guest',
+    clientId: secondGuestClientId
+  });
+  await secondGuestJoinedPromise;
+  await hostSawSecondJoinPromise;
+
+  const hostClosedPromise = waitForSocketEvent<{ roomId: string }>(hostSocket, 'room-closed');
+  const guestClosedPromise = waitForSocketEvent<{ roomId: string }>(guestSocket, 'room-closed');
+  hostSocket.emit('close-room', roomId);
+  const hostClosed = await hostClosedPromise;
+  const guestClosed = await guestClosedPromise;
+
+  assert.equal(hostClosed.roomId, roomId);
+  assert.equal(guestClosed.roomId, roomId);
+
+  const resumeSocket = await createConnectedSocket(url);
+  const failedResumePromise = waitForSocketEvent<string>(resumeSocket, 'session-resume-failed');
+  resumeSocket.emit('resume-session', { roomId, clientId: hostClientId });
+  await failedResumePromise;
+
+  hostSocket.disconnect();
+  guestSocket.disconnect();
+  resumeSocket.disconnect();
+  await closeServer(server);
+}
+
 async function verifyHostSnapshotRecovery() {
   const tempDir = mkdtempSync(path.join(tmpdir(), 'splendor-host-snapshot-'));
   const snapshotPath = path.join(tempDir, 'host-snapshot.json');
@@ -635,11 +721,12 @@ async function main() {
   verifyInvalidActionDoesNotMutateState();
   verifyNobleClaimAndFinalRound();
   await verifyLobbySessionResume();
+  await verifyRoomLifecycleControls();
   await verifyHostSnapshotRecovery();
 
   console.log('Splendor base data verified.');
   console.log(
-    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, invalid-action rollback, hidden information projection, lobby session recovery, and host snapshot restore.'
+    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, invalid-action rollback, hidden information projection, lobby session recovery, room lifecycle controls, and host snapshot restore.'
   );
 }
 

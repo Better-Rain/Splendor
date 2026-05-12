@@ -34,6 +34,10 @@ interface SessionResumedPayload {
   playerId: string;
 }
 
+interface RoomClosedPayload {
+  roomId: string;
+}
+
 interface NoticeState {
   tone: 'info' | 'success' | 'error';
   message: string;
@@ -84,6 +88,11 @@ const UI_COPY = {
     roomCodeLabel: '房间号',
     copyCode: '复制房间号',
     startMatch: '开始对局',
+    leaveRoom: '离开房间',
+    closeRoom: '关闭房间',
+    closeRoomConfirm: '关闭房间会移除所有玩家并清理本机快照，确定继续吗？',
+    leftRoom: '已离开房间。',
+    roomClosed: '房间已关闭。',
     seatsTitle: '座位',
     seatsSummary: (count: number, status: string) => `当前 ${count} 位玩家，房间状态：${status}。`,
     seatLabel: (seat: number) => `座位 ${seat}`,
@@ -218,6 +227,11 @@ const UI_COPY = {
     roomCodeLabel: 'Room code',
     copyCode: 'Copy code',
     startMatch: 'Start match',
+    leaveRoom: 'Leave room',
+    closeRoom: 'Close room',
+    closeRoomConfirm: 'Closing the room removes all players and clears the local snapshot. Continue?',
+    leftRoom: 'Left the room.',
+    roomClosed: 'The room was closed.',
     seatsTitle: 'Seats',
     seatsSummary: (count: number, status: string) => `${count} players joined, room status ${status}.`,
     seatLabel: (seat: number) => `Seat ${seat}`,
@@ -540,6 +554,18 @@ const App: React.FC = () => {
     const nextSocket = io(getServerUrl());
     setSocket(nextSocket);
 
+    const clearLocalRoomState = () => {
+      window.localStorage.removeItem(ROOM_ID_STORAGE_KEY);
+      setRoomId('');
+      setCurrentRoom(null);
+      setGameState(null);
+      setLocalPlayerId(null);
+      setGameStarted(false);
+      setPendingReturnAction(null);
+      setSelectedDistinctColors([]);
+      setReturnedTokens(createEmptyTokenSupply());
+    };
+
     nextSocket.on('connect', () => {
       setConnected(true);
       setNotice({
@@ -609,16 +635,29 @@ const App: React.FC = () => {
     });
 
     nextSocket.on('session-resume-failed', () => {
-      window.localStorage.removeItem(ROOM_ID_STORAGE_KEY);
-      setCurrentRoom(null);
-      setGameState(null);
-      setGameStarted(false);
+      clearLocalRoomState();
       setNotice({
         tone: 'info',
         message:
           languageRef.current === 'zh-CN'
             ? '未能恢复上次会话，请重新加入房间。'
             : 'Could not restore the previous session. Please join a room again.'
+      });
+    });
+
+    nextSocket.on('room-left', () => {
+      clearLocalRoomState();
+      setNotice({
+        tone: 'info',
+        message: UI_COPY[languageRef.current].leftRoom
+      });
+    });
+
+    nextSocket.on('room-closed', (_payload: RoomClosedPayload) => {
+      clearLocalRoomState();
+      setNotice({
+        tone: 'info',
+        message: UI_COPY[languageRef.current].roomClosed
       });
     });
 
@@ -689,6 +728,8 @@ const App: React.FC = () => {
     [gameState, localPlayerId]
   );
   const localTokenCount = localGamePlayer ? totalTokens(localGamePlayer.tokens) : 0;
+  const canLeaveRoom = !!currentRoom && !!localRoomPlayer && !localRoomPlayer.isHost && currentRoom.status !== 'in_game';
+  const canCloseRoom = !!currentRoom && !!localRoomPlayer?.isHost;
   const isLocalPlayersTurn = !!(
     gameState &&
     localGamePlayer &&
@@ -753,6 +794,18 @@ const App: React.FC = () => {
   const startGame = () => {
     if (socket && currentRoom) {
       socket.emit('start-game', currentRoom.id);
+    }
+  };
+
+  const leaveRoom = () => {
+    if (socket && currentRoom) {
+      socket.emit('leave-room', currentRoom.id);
+    }
+  };
+
+  const closeRoom = () => {
+    if (socket && currentRoom && window.confirm(copy.closeRoomConfirm)) {
+      socket.emit('close-room', currentRoom.id);
     }
   };
 
@@ -1074,6 +1127,16 @@ const App: React.FC = () => {
                   <button className="secondary" onClick={copyRoomCode}>
                     {copy.copyCode}
                   </button>
+                  {canLeaveRoom && (
+                    <button className="secondary" onClick={leaveRoom}>
+                      {copy.leaveRoom}
+                    </button>
+                  )}
+                  {canCloseRoom && (
+                    <button className="danger" onClick={closeRoom}>
+                      {copy.closeRoom}
+                    </button>
+                  )}
                   {localRoomPlayer?.isHost && !gameStarted && (
                     <button onClick={startGame} disabled={seatedPlayers.length < 2}>
                       {copy.startMatch}
