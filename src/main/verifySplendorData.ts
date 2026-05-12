@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { once } from 'node:events';
+import type { AddressInfo } from 'node:net';
+import { io as createClient, Socket } from 'socket.io-client';
 import {
   DEVELOPMENT_CARD_COUNTS,
   GOLD_TOKEN_SUPPLY,
@@ -15,7 +18,7 @@ import {
 } from '../shared/baseSet';
 import { Room } from '../shared/types';
 import { applyGameAction, initializeGame } from './gameLogic';
-import { projectGameStateForViewer } from './server';
+import { projectGameStateForViewer, startServer } from './server';
 
 const EXPECTED_BASE_SET_HASH = 'db2f636f82d0df543a9e860e3cce449e3ccece67e24658654707d58a2c44938c';
 
@@ -342,18 +345,110 @@ function verifyNobleClaimAndFinalRound() {
   assert.deepEqual(state.winnerIds, [activePlayer.id]);
 }
 
-verifyBaseSet();
-verifySetup(2);
-verifySetup(3);
-verifySetup(4);
-verifyTakeDifferentTokensAction();
-verifyTakeTwoSameTokensValidation();
-verifyReserveCardAction();
-verifyOverflowRequiresReturn();
-verifyOverflowReturnAction();
-verifyHiddenInformationProjection();
-verifyPurchaseCardAction();
-verifyNobleClaimAndFinalRound();
+function waitForSocketEvent<T>(socket: Socket, event: string, timeoutMs = 5000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out waiting for socket event "${event}".`));
+    }, timeoutMs);
 
-console.log('Splendor base data verified.');
-console.log('Validated 90 development cards, 10 nobles, setup rules, and core turn actions.');
+    socket.once(event, (payload: T) => {
+      clearTimeout(timer);
+      resolve(payload);
+    });
+
+    socket.once('connect_error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
+
+async function createConnectedSocket(url: string): Promise<Socket> {
+  const socket = createClient(url, {
+    forceNew: true,
+    reconnection: false,
+    transports: ['websocket']
+  });
+
+  await waitForSocketEvent(socket, 'connect');
+  return socket;
+}
+
+async function verifyLobbySessionResume() {
+  const server = startServer({ port: 0, silent: true });
+  if (!server.listening) {
+    await once(server, 'listening');
+  }
+
+  const address = server.address() as AddressInfo;
+  const url = `http://127.0.0.1:${address.port}`;
+  const clientId = 'verify-client-reconnect';
+
+  const firstSocket = await createConnectedSocket(url);
+  const joinedPromise = waitForSocketEvent<{ room: Room; player: { id: string } }>(
+    firstSocket,
+    'room-joined'
+  );
+  firstSocket.emit('create-room', {
+    roomName: 'Recovery Table',
+    playerName: 'Host',
+    clientId
+  });
+
+  const joined = await joinedPromise;
+  const playerId = joined.player.id;
+  const roomId = joined.room.id;
+
+  firstSocket.disconnect();
+
+  const resumedSocket = await createConnectedSocket(url);
+  const resumedPromise = waitForSocketEvent<{ room: Room; playerId: string }>(
+    resumedSocket,
+    'session-resumed'
+  );
+  resumedSocket.emit('resume-session', { roomId, clientId });
+  const resumed = await resumedPromise;
+
+  assert.equal(resumed.playerId, playerId);
+  assert.equal(resumed.room.id, roomId);
+  assert.equal(resumed.room.players[0].id, playerId);
+  assert.equal(resumed.room.players[0].connectionState, 'connected');
+  assert.equal(resumed.room.status, 'open');
+
+  resumedSocket.disconnect();
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+async function main() {
+  verifyBaseSet();
+  verifySetup(2);
+  verifySetup(3);
+  verifySetup(4);
+  verifyTakeDifferentTokensAction();
+  verifyTakeTwoSameTokensValidation();
+  verifyReserveCardAction();
+  verifyOverflowRequiresReturn();
+  verifyOverflowReturnAction();
+  verifyHiddenInformationProjection();
+  verifyPurchaseCardAction();
+  verifyNobleClaimAndFinalRound();
+  await verifyLobbySessionResume();
+
+  console.log('Splendor base data verified.');
+  console.log(
+    'Validated 90 development cards, 10 nobles, setup rules, core turn actions, hidden information projection, and lobby session recovery.'
+  );
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

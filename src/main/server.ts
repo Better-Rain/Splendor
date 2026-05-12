@@ -28,6 +28,13 @@ interface PlayerSession {
   socketId: string | null;
 }
 
+interface StartServerOptions {
+  port?: number;
+  silent?: boolean;
+}
+
+const LOBBY_RECONNECT_WINDOW_MS = 120000;
+
 function now(): string {
   return new Date().toISOString();
 }
@@ -178,7 +185,7 @@ export function projectRoomForViewer(room: Room, viewerId: string): Room {
   };
 }
 
-export function startServer() {
+export function startServer(options: StartServerOptions = {}) {
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server, {
@@ -193,6 +200,14 @@ export function startServer() {
   const socketToPlayerId = new Map<string, string>();
   const playerSessions = new Map<string, PlayerSession>();
   const roomClientIndex = new Map<string, Map<string, string>>();
+  const lobbyExpiryTimers = new Map<string, NodeJS.Timeout>();
+
+  server.on('close', () => {
+    for (const timer of lobbyExpiryTimers.values()) {
+      clearTimeout(timer);
+    }
+    lobbyExpiryTimers.clear();
+  });
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', rooms: rooms.size });
@@ -208,6 +223,12 @@ export function startServer() {
   }
 
   function attachPlayerSocket(roomId: string, playerId: string, clientId: string, socketId: string) {
+    const timer = lobbyExpiryTimers.get(playerId);
+    if (timer) {
+      clearTimeout(timer);
+      lobbyExpiryTimers.delete(playerId);
+    }
+
     socketToRoomId.set(socketId, roomId);
     socketToPlayerId.set(socketId, playerId);
     playerSessions.set(playerId, { roomId, clientId, socketId });
@@ -230,6 +251,12 @@ export function startServer() {
   }
 
   function removePlayerSession(roomId: string, playerId: string) {
+    const timer = lobbyExpiryTimers.get(playerId);
+    if (timer) {
+      clearTimeout(timer);
+      lobbyExpiryTimers.delete(playerId);
+    }
+
     const session = playerSessions.get(playerId);
     if (session) {
       const roomIndex = roomClientIndex.get(roomId);
@@ -312,8 +339,63 @@ export function startServer() {
     room.updatedAt = now();
   }
 
+  function cleanupRoomIfEmpty(roomId: string) {
+    const room = rooms.get(roomId);
+    if (!room) {
+      return;
+    }
+
+    if (room.players.length > 0) {
+      return;
+    }
+
+    roomClientIndex.delete(roomId);
+    rooms.delete(roomId);
+  }
+
+  function scheduleLobbySessionExpiry(roomId: string, playerId: string) {
+    const existing = lobbyExpiryTimers.get(playerId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    const timer = setTimeout(() => {
+      lobbyExpiryTimers.delete(playerId);
+
+      const room = rooms.get(roomId);
+      if (!room || room.status !== 'open') {
+        return;
+      }
+
+      const player = room.players.find((candidate) => candidate.id === playerId);
+      if (!player || player.connectionState !== 'disconnected') {
+        return;
+      }
+
+      room.players = room.players.filter((candidate) => candidate.id !== playerId);
+      removePlayerSession(roomId, playerId);
+
+      if (room.players.length === 0) {
+        cleanupRoomIfEmpty(roomId);
+        return;
+      }
+
+      if (room.hostId === playerId) {
+        room.hostId = room.players[0].id;
+      }
+
+      reseatPlayers(room);
+      updateRoomTimestamp(room);
+      emitRoomState(roomId);
+    }, LOBBY_RECONNECT_WINDOW_MS);
+
+    lobbyExpiryTimers.set(playerId, timer);
+  }
+
   io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+    if (!options.silent) {
+      console.log('Client connected:', socket.id);
+    }
 
     socket.on('create-room', ({ roomName, playerName, clientId }: CreateRoomPayload) => {
       const roomId = generateRoomId();
@@ -336,7 +418,9 @@ export function startServer() {
       socket.emit('room-created', roomId);
       socket.emit('room-joined', { room: projectRoomForViewer(room, playerId), player: room.players[0] });
       emitRoomState(roomId);
-      console.log(`Room created: ${roomId}, host: ${safePlayerName}`);
+      if (!options.silent) {
+        console.log(`Room created: ${roomId}, host: ${safePlayerName}`);
+      }
     });
 
     socket.on('join-room', (roomId: string, playerInfo: JoinRoomPayload) => {
@@ -369,14 +453,16 @@ export function startServer() {
       socket.emit('room-joined', { room: projectRoomForViewer(room, playerId), player });
       socket.to(roomId).emit('player-joined', player);
       emitRoomState(roomId);
-      console.log(`${safePlayerName} joined room ${roomId}`);
+      if (!options.silent) {
+        console.log(`${safePlayerName} joined room ${roomId}`);
+      }
     });
 
     socket.on('resume-session', ({ roomId, clientId }: ResumeSessionPayload) => {
       const room = rooms.get(roomId);
       const playerId = roomClientIndex.get(roomId)?.get(clientId);
 
-      if (!room || !playerId || room.status === 'open') {
+      if (!room || !playerId) {
         socket.emit('session-resume-failed', 'Saved session could not be restored.');
         return;
       }
@@ -409,7 +495,9 @@ export function startServer() {
       socket.emit('session-resumed', { room: projectRoomForViewer(room, playerId), playerId });
       emitGameState(roomId);
       emitRoomState(roomId);
-      console.log(`Session resumed for player ${playerId} in room ${roomId}`);
+      if (!options.silent) {
+        console.log(`Session resumed for player ${playerId} in room ${roomId}`);
+      }
     });
 
     socket.on('start-game', (roomId: string) => {
@@ -423,6 +511,11 @@ export function startServer() {
       const player = room.players.find((candidate) => candidate.id === playerId);
       if (!player || !player.isHost) {
         socket.emit('game-error', 'Only the host can start the match.');
+        return;
+      }
+
+      if (room.players.some((candidate) => candidate.connectionState !== 'connected')) {
+        socket.emit('game-error', 'All lobby players must be connected before the host can start the match.');
         return;
       }
 
@@ -450,7 +543,9 @@ export function startServer() {
       }
       emitGameState(roomId);
       emitRoomState(roomId);
-      console.log(`Match started in room ${roomId}`);
+      if (!options.silent) {
+        console.log(`Match started in room ${roomId}`);
+      }
     });
 
     socket.on('game-action', (roomId: string, action: GameAction) => {
@@ -486,7 +581,9 @@ export function startServer() {
     socket.on('disconnect', () => {
       const room = findRoomBySocketId(socket.id);
       const playerId = socketToPlayerId.get(socket.id);
-      console.log('Client disconnected:', socket.id);
+      if (!options.silent) {
+        console.log('Client disconnected:', socket.id);
+      }
 
       if (!room) {
         clearSocketBindings(socket.id);
@@ -495,23 +592,12 @@ export function startServer() {
 
       if (room.status === 'open') {
         if (playerId) {
-          room.players = room.players.filter((player) => player.id !== playerId);
-          removePlayerSession(room.id, playerId);
+          room.players = room.players.map((player) =>
+            player.id === playerId ? { ...player, connectionState: 'disconnected' } : player
+          );
+          scheduleLobbySessionExpiry(room.id, playerId);
         }
         clearSocketBindings(socket.id);
-
-        if (room.players.length === 0) {
-          roomClientIndex.delete(room.id);
-          rooms.delete(room.id);
-          return;
-        }
-
-        const hostStillPresent = room.players.some((player) => player.id === room.hostId);
-        if (!hostStillPresent) {
-          room.hostId = room.players[0].id;
-        }
-
-        reseatPlayers(room);
       } else {
         clearSocketBindings(socket.id);
         room.players = room.players.map((player) =>
@@ -530,9 +616,13 @@ export function startServer() {
     });
   });
 
-  const PORT = process.env.PORT || 3001;
+  const PORT = options.port ?? process.env.PORT ?? 3001;
   server.listen(PORT, () => {
-    console.log(`Game server listening at http://localhost:${PORT}`);
+    const address = server.address();
+    const resolvedPort = typeof address === 'object' && address ? address.port : PORT;
+    if (!options.silent) {
+      console.log(`Game server listening at http://localhost:${resolvedPort}`);
+    }
   });
 
   return server;
