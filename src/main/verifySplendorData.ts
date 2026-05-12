@@ -15,6 +15,7 @@ import {
 } from '../shared/baseSet';
 import { Room } from '../shared/types';
 import { applyGameAction, initializeGame } from './gameLogic';
+import { projectGameStateForViewer } from './server';
 
 const EXPECTED_BASE_SET_HASH = 'db2f636f82d0df543a9e860e3cce449e3ccece67e24658654707d58a2c44938c';
 
@@ -252,6 +253,39 @@ function verifyOverflowReturnAction() {
   assert.equal(state.gemSupply.onyx, TOKEN_SUPPLY_BY_PLAYER_COUNT[3] + 1);
 }
 
+function verifyHiddenInformationProjection() {
+  const state = initializeGame(createRoom(3));
+  const reservingPlayer = state.players[0];
+  const spectator = state.players[1];
+
+  applyGameAction(state, reservingPlayer.id, {
+    type: 'reserve_card',
+    level: 3,
+    source: 'deck'
+  });
+
+  const ownerView = projectGameStateForViewer(state, reservingPlayer.id);
+  const spectatorView = projectGameStateForViewer(state, spectator.id);
+
+  assert.equal(ownerView.players[0].reservedCards.length, 1);
+  assert.equal(spectatorView.players[0].reservedCards.length, 1);
+  assert(ownerView.players[0].reservedCards[0].card, 'Owner should see the reserved card details.');
+  assert.equal(
+    spectatorView.players[0].reservedCards[0].card,
+    null,
+    'Other players should not see the reserved deck-top card.'
+  );
+  assert.notEqual(
+    spectatorView.players[0].reservedCards[0].id,
+    ownerView.players[0].reservedCards[0].id,
+    'Spectator should not see the real reserved card id.'
+  );
+  assert.equal(ownerView.decks.level3.length, state.decks.level3.length);
+  assert.equal(spectatorView.decks.level3.length, state.decks.level3.length);
+  assert.equal(ownerView.decks.level3[0].points, 0);
+  assert.equal(spectatorView.decks.level3[0].points, 0);
+}
+
 function verifyPurchaseCardAction() {
   const state = initializeGame(createRoom(2));
   const activePlayer = state.players[0];
@@ -317,6 +351,7 @@ verifyTakeTwoSameTokensValidation();
 verifyReserveCardAction();
 verifyOverflowRequiresReturn();
 verifyOverflowReturnAction();
+verifyHiddenInformationProjection();
 verifyPurchaseCardAction();
 verifyNobleClaimAndFinalRound();
 

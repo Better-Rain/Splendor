@@ -29,6 +29,11 @@ interface RoomJoinedPayload {
   };
 }
 
+interface SessionResumedPayload {
+  room: Room;
+  playerId: string;
+}
+
 interface NoticeState {
   tone: 'info' | 'success' | 'error';
   message: string;
@@ -41,6 +46,9 @@ interface PendingReturnAction {
   overflow: number;
   submitNotice: string;
 }
+
+const CLIENT_ID_STORAGE_KEY = 'splendor-client-id';
+const ROOM_ID_STORAGE_KEY = 'splendor-room-id';
 
 const UI_COPY = {
   'zh-CN': {
@@ -151,7 +159,7 @@ const UI_COPY = {
     ],
     knownGapsTitle: '当前原型缺口',
     knownGaps: [
-      '还没有实现断线重连与会话恢复。',
+      '开局前大厅的断线重连还没有完整恢复。',
       '如果同时满足多个贵族，目前会自动拿第一个可选贵族。'
     ],
     returnPanelTitle: '归还宝石',
@@ -280,7 +288,7 @@ const UI_COPY = {
     ],
     knownGapsTitle: 'Known prototype gaps',
     knownGaps: [
-      'Reconnect and session recovery are not implemented yet.',
+      'Pregame lobby reconnection is not fully restored yet.',
       'If multiple nobles are eligible at once, the first eligible noble is chosen automatically.'
     ],
     returnPanelTitle: 'Return tokens',
@@ -318,6 +326,21 @@ function getInitialLanguage(): Language {
   }
 
   return window.navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US';
+}
+
+function getClientId(): string {
+  const stored = window.localStorage.getItem(CLIENT_ID_STORAGE_KEY);
+  if (stored) {
+    return stored;
+  }
+
+  const clientId = window.crypto.randomUUID();
+  window.localStorage.setItem(CLIENT_ID_STORAGE_KEY, clientId);
+  return clientId;
+}
+
+function getSavedRoomId(): string {
+  return window.localStorage.getItem(ROOM_ID_STORAGE_KEY) ?? '';
 }
 
 function createEmptyTokenSupply(): TokenSupply {
@@ -456,7 +479,7 @@ const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>(getInitialLanguage);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const [roomId, setRoomId] = useState('');
+  const [roomId, setRoomId] = useState(getSavedRoomId);
   const [playerName, setPlayerName] = useState('');
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
@@ -469,6 +492,7 @@ const App: React.FC = () => {
     message: UI_COPY[getInitialLanguage()].defaultNotice
   });
   const languageRef = useRef<Language>(language);
+  const clientIdRef = useRef<string>(getClientId());
 
   const copy = UI_COPY[language];
   const tokenLabels = useMemo(
@@ -502,6 +526,14 @@ const App: React.FC = () => {
         tone: 'success',
         message: UI_COPY[languageRef.current].connectedNotice
       });
+
+      const savedRoomId = getSavedRoomId();
+      if (savedRoomId) {
+        nextSocket.emit('resume-session', {
+          roomId: savedRoomId,
+          clientId: clientIdRef.current
+        });
+      }
     });
 
     nextSocket.on('disconnect', () => {
@@ -525,9 +557,40 @@ const App: React.FC = () => {
       setGameState(room.gameState);
       setLocalPlayerId(player.id);
       setGameStarted(room.status === 'in_game' || !!room.gameState);
+      window.localStorage.setItem(ROOM_ID_STORAGE_KEY, room.id);
       setNotice({
         tone: 'success',
         message: UI_COPY[languageRef.current].joinedRoom(room.name)
+      });
+    });
+
+    nextSocket.on('session-resumed', ({ room, playerId }: SessionResumedPayload) => {
+      setCurrentRoom(room);
+      setGameState(room.gameState);
+      setLocalPlayerId(playerId);
+      setRoomId(room.id);
+      setGameStarted(room.status === 'in_game' || room.status === 'closed' || !!room.gameState);
+      window.localStorage.setItem(ROOM_ID_STORAGE_KEY, room.id);
+      setNotice({
+        tone: 'success',
+        message:
+          languageRef.current === 'zh-CN'
+            ? `已恢复到房间 ${room.name}。`
+            : `Resumed session in ${room.name}.`
+      });
+    });
+
+    nextSocket.on('session-resume-failed', () => {
+      window.localStorage.removeItem(ROOM_ID_STORAGE_KEY);
+      setCurrentRoom(null);
+      setGameState(null);
+      setGameStarted(false);
+      setNotice({
+        tone: 'info',
+        message:
+          languageRef.current === 'zh-CN'
+            ? '未能恢复上次会话，请重新加入房间。'
+            : 'Could not restore the previous session. Please join a room again.'
       });
     });
 
@@ -622,14 +685,18 @@ const App: React.FC = () => {
     if (socket && playerName.trim()) {
       socket.emit('create-room', {
         roomName: `${playerName.trim()}'s Table`,
-        playerName: playerName.trim()
+        playerName: playerName.trim(),
+        clientId: clientIdRef.current
       });
     }
   };
 
   const joinRoom = () => {
     if (socket && roomId.trim() && playerName.trim()) {
-      socket.emit('join-room', roomId.trim().toUpperCase(), { name: playerName.trim() });
+      socket.emit('join-room', roomId.trim().toUpperCase(), {
+        name: playerName.trim(),
+        clientId: clientIdRef.current
+      });
     }
   };
 

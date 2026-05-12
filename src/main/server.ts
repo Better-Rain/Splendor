@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 import http from 'http';
 import { Server } from 'socket.io';
 import { MAX_PLAYERS_PER_ROOM, MIN_PLAYERS_PER_ROOM } from '../shared/constants';
@@ -8,10 +9,23 @@ import { applyGameAction, canStartGame, GameRuleError, initializeGame } from './
 interface CreateRoomPayload {
   roomName: string;
   playerName: string;
+  clientId: string;
 }
 
 interface JoinRoomPayload {
   name: string;
+  clientId: string;
+}
+
+interface ResumeSessionPayload {
+  roomId: string;
+  clientId: string;
+}
+
+interface PlayerSession {
+  roomId: string;
+  clientId: string;
+  socketId: string | null;
 }
 
 function now(): string {
@@ -27,9 +41,9 @@ function sanitizeRoomName(name: string, playerName: string): string {
   return trimmed || `${playerName}'s Table`;
 }
 
-function createLobbyPlayer(socketId: string, name: string, seat: number, isHost: boolean): LobbyPlayer {
+function createLobbyPlayer(playerId: string, name: string, seat: number, isHost: boolean): LobbyPlayer {
   return {
-    id: socketId,
+    id: playerId,
     name,
     isHost,
     seat,
@@ -89,10 +103,10 @@ function createHiddenDeck(level: 1 | 2 | 3, count: number): Card[] {
 function projectReservedCardForViewer(
   reservedCard: ReservedCard,
   ownerId: string,
-  viewerId: string,
+  viewerPlayerId: string,
   index: number
 ): ReservedCard {
-  const canSeeCard = reservedCard.visibility === 'public' || ownerId === viewerId;
+  const canSeeCard = reservedCard.visibility === 'public' || ownerId === viewerPlayerId;
 
   return {
     id: canSeeCard ? reservedCard.id : `hidden-reserved-${ownerId}-${index + 1}`,
@@ -102,7 +116,7 @@ function projectReservedCardForViewer(
   };
 }
 
-function projectGameStateForViewer(state: GameState, viewerId: string): GameState {
+export function projectGameStateForViewer(state: GameState, viewerPlayerId: string): GameState {
   return {
     ...state,
     players: state.players.map((player) => ({
@@ -111,7 +125,7 @@ function projectGameStateForViewer(state: GameState, viewerId: string): GameStat
       bonuses: cloneBonusMap(player.bonuses),
       purchasedCards: player.purchasedCards.map(cloneCard),
       reservedCards: player.reservedCards.map((reservedCard, index) =>
-        projectReservedCardForViewer(reservedCard, player.id, viewerId, index)
+        projectReservedCardForViewer(reservedCard, player.id, viewerPlayerId, index)
       ),
       nobles: player.nobles.map(cloneNoble)
     })),
@@ -131,7 +145,7 @@ function projectGameStateForViewer(state: GameState, viewerId: string): GameStat
       const shouldHideReservedDeckCard =
         entry.type === 'reserve_card' &&
         entry.details?.source === 'deck' &&
-        entry.playerId !== viewerId;
+        entry.playerId !== viewerPlayerId;
 
       if (!shouldHideReservedDeckCard) {
         return {
@@ -156,7 +170,7 @@ function projectGameStateForViewer(state: GameState, viewerId: string): GameStat
   };
 }
 
-function projectRoomForViewer(room: Room, viewerId: string): Room {
+export function projectRoomForViewer(room: Room, viewerId: string): Room {
   return {
     ...room,
     players: room.players.map((player) => ({ ...player })),
@@ -175,10 +189,78 @@ export function startServer() {
   });
 
   const rooms: Map<string, Room> = new Map();
+  const socketToRoomId = new Map<string, string>();
+  const socketToPlayerId = new Map<string, string>();
+  const playerSessions = new Map<string, PlayerSession>();
+  const roomClientIndex = new Map<string, Map<string, string>>();
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', rooms: rooms.size });
   });
+
+  function getOrCreateRoomClientIndex(roomId: string): Map<string, string> {
+    let index = roomClientIndex.get(roomId);
+    if (!index) {
+      index = new Map<string, string>();
+      roomClientIndex.set(roomId, index);
+    }
+    return index;
+  }
+
+  function attachPlayerSocket(roomId: string, playerId: string, clientId: string, socketId: string) {
+    socketToRoomId.set(socketId, roomId);
+    socketToPlayerId.set(socketId, playerId);
+    playerSessions.set(playerId, { roomId, clientId, socketId });
+    getOrCreateRoomClientIndex(roomId).set(clientId, playerId);
+  }
+
+  function clearSocketBindings(socketId: string) {
+    const playerId = socketToPlayerId.get(socketId);
+    socketToRoomId.delete(socketId);
+    socketToPlayerId.delete(socketId);
+
+    if (!playerId) {
+      return;
+    }
+
+    const session = playerSessions.get(playerId);
+    if (session?.socketId === socketId) {
+      session.socketId = null;
+    }
+  }
+
+  function removePlayerSession(roomId: string, playerId: string) {
+    const session = playerSessions.get(playerId);
+    if (session) {
+      const roomIndex = roomClientIndex.get(roomId);
+      roomIndex?.delete(session.clientId);
+      playerSessions.delete(playerId);
+    }
+  }
+
+  function findPlayerBySocketId(socketId: string): { room: Room; player: LobbyPlayer } | undefined {
+    const roomId = socketToRoomId.get(socketId);
+    const playerId = socketToPlayerId.get(socketId);
+    if (!roomId || !playerId) {
+      return undefined;
+    }
+
+    const room = rooms.get(roomId);
+    if (!room) {
+      return undefined;
+    }
+
+    const player = room.players.find((candidate) => candidate.id === playerId);
+    if (!player) {
+      return undefined;
+    }
+
+    return { room, player };
+  }
+
+  function getViewerPlayerId(socketId: string): string | undefined {
+    return socketToPlayerId.get(socketId);
+  }
 
   function getRoomSockets(roomId: string) {
     const socketIds = io.sockets.adapter.rooms.get(roomId);
@@ -198,7 +280,11 @@ export function startServer() {
     }
 
     for (const memberSocket of getRoomSockets(roomId)) {
-      memberSocket.emit('room-updated', projectRoomForViewer(room, memberSocket.id));
+      const viewerPlayerId = getViewerPlayerId(memberSocket.id);
+      if (!viewerPlayerId) {
+        continue;
+      }
+      memberSocket.emit('room-updated', projectRoomForViewer(room, viewerPlayerId));
     }
   }
 
@@ -209,18 +295,17 @@ export function startServer() {
     }
 
     for (const memberSocket of getRoomSockets(roomId)) {
-      memberSocket.emit('game-state-updated', projectGameStateForViewer(room.gameState, memberSocket.id));
+      const viewerPlayerId = getViewerPlayerId(memberSocket.id);
+      if (!viewerPlayerId) {
+        continue;
+      }
+      memberSocket.emit('game-state-updated', projectGameStateForViewer(room.gameState, viewerPlayerId));
     }
   }
 
   function findRoomBySocketId(socketId: string): Room | undefined {
-    for (const room of rooms.values()) {
-      if (room.players.some((player) => player.id === socketId)) {
-        return room;
-      }
-    }
-
-    return undefined;
+    const roomId = socketToRoomId.get(socketId);
+    return roomId ? rooms.get(roomId) : undefined;
   }
 
   function updateRoomTimestamp(room: Room) {
@@ -230,24 +315,26 @@ export function startServer() {
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
-    socket.on('create-room', ({ roomName, playerName }: CreateRoomPayload) => {
+    socket.on('create-room', ({ roomName, playerName, clientId }: CreateRoomPayload) => {
       const roomId = generateRoomId();
       const safePlayerName = sanitizePlayerName(playerName);
+      const playerId = randomUUID();
       const room: Room = {
         id: roomId,
         name: sanitizeRoomName(roomName, safePlayerName),
-        hostId: socket.id,
+        hostId: playerId,
         status: 'open',
-        players: [createLobbyPlayer(socket.id, safePlayerName, 0, true)],
+        players: [createLobbyPlayer(playerId, safePlayerName, 0, true)],
         gameState: null,
         createdAt: now(),
         updatedAt: now()
       };
 
       rooms.set(roomId, room);
+      attachPlayerSocket(roomId, playerId, clientId, socket.id);
       socket.join(roomId);
       socket.emit('room-created', roomId);
-      socket.emit('room-joined', { room: projectRoomForViewer(room, socket.id), player: room.players[0] });
+      socket.emit('room-joined', { room: projectRoomForViewer(room, playerId), player: room.players[0] });
       emitRoomState(roomId);
       console.log(`Room created: ${roomId}, host: ${safePlayerName}`);
     });
@@ -270,17 +357,59 @@ export function startServer() {
       }
 
       const safePlayerName = sanitizePlayerName(playerInfo.name);
-      const player = createLobbyPlayer(socket.id, safePlayerName, room.players.length, false);
+      const playerId = randomUUID();
+      const player = createLobbyPlayer(playerId, safePlayerName, room.players.length, false);
 
       room.players.push(player);
       updateRoomTimestamp(room);
       reseatPlayers(room);
 
+      attachPlayerSocket(roomId, playerId, playerInfo.clientId, socket.id);
       socket.join(roomId);
-      socket.emit('room-joined', { room: projectRoomForViewer(room, socket.id), player });
+      socket.emit('room-joined', { room: projectRoomForViewer(room, playerId), player });
       socket.to(roomId).emit('player-joined', player);
       emitRoomState(roomId);
       console.log(`${safePlayerName} joined room ${roomId}`);
+    });
+
+    socket.on('resume-session', ({ roomId, clientId }: ResumeSessionPayload) => {
+      const room = rooms.get(roomId);
+      const playerId = roomClientIndex.get(roomId)?.get(clientId);
+
+      if (!room || !playerId || room.status === 'open') {
+        socket.emit('session-resume-failed', 'Saved session could not be restored.');
+        return;
+      }
+
+      const player = room.players.find((candidate) => candidate.id === playerId);
+      if (!player) {
+        socket.emit('session-resume-failed', 'Saved player session could not be found.');
+        return;
+      }
+
+      const previousSession = playerSessions.get(playerId);
+      if (previousSession?.socketId && previousSession.socketId !== socket.id) {
+        clearSocketBindings(previousSession.socketId);
+      }
+
+      attachPlayerSocket(roomId, playerId, clientId, socket.id);
+      socket.join(roomId);
+
+      room.players = room.players.map((candidate) =>
+        candidate.id === playerId ? { ...candidate, connectionState: 'connected' } : candidate
+      );
+
+      if (room.gameState) {
+        room.gameState.players = room.gameState.players.map((candidate) =>
+          candidate.id === playerId ? { ...candidate, connectionState: 'connected' } : candidate
+        );
+      }
+
+      updateRoomTimestamp(room);
+      socket.emit('session-resumed', { room: projectRoomForViewer(room, playerId), playerId });
+      emitGameState(roomId);
+      emitRoomState(roomId);
+      console.log(`Session resumed for player ${playerId} in room ${roomId}`);
     });
 
     socket.on('start-game', (roomId: string) => {
@@ -290,7 +419,8 @@ export function startServer() {
         return;
       }
 
-      const player = room.players.find((candidate) => candidate.id === socket.id);
+      const playerId = socketToPlayerId.get(socket.id);
+      const player = room.players.find((candidate) => candidate.id === playerId);
       if (!player || !player.isHost) {
         socket.emit('game-error', 'Only the host can start the match.');
         return;
@@ -309,9 +439,13 @@ export function startServer() {
       updateRoomTimestamp(room);
 
       for (const memberSocket of getRoomSockets(roomId)) {
+        const viewerPlayerId = getViewerPlayerId(memberSocket.id);
+        if (!viewerPlayerId) {
+          continue;
+        }
         memberSocket.emit(
           'game-started',
-          room.gameState ? projectGameStateForViewer(room.gameState, memberSocket.id) : null
+          room.gameState ? projectGameStateForViewer(room.gameState, viewerPlayerId) : null
         );
       }
       emitGameState(roomId);
@@ -327,7 +461,13 @@ export function startServer() {
       }
 
       try {
-        applyGameAction(room.gameState, socket.id, action);
+        const playerId = socketToPlayerId.get(socket.id);
+        if (!playerId) {
+          socket.emit('game-error', 'Player session was not found for this connection.');
+          return;
+        }
+
+        applyGameAction(room.gameState, playerId, action);
 
         if (room.gameState.phase === 'finished') {
           room.status = 'closed';
@@ -345,16 +485,23 @@ export function startServer() {
 
     socket.on('disconnect', () => {
       const room = findRoomBySocketId(socket.id);
+      const playerId = socketToPlayerId.get(socket.id);
       console.log('Client disconnected:', socket.id);
 
       if (!room) {
+        clearSocketBindings(socket.id);
         return;
       }
 
       if (room.status === 'open') {
-        room.players = room.players.filter((player) => player.id !== socket.id);
+        if (playerId) {
+          room.players = room.players.filter((player) => player.id !== playerId);
+          removePlayerSession(room.id, playerId);
+        }
+        clearSocketBindings(socket.id);
 
         if (room.players.length === 0) {
+          roomClientIndex.delete(room.id);
           rooms.delete(room.id);
           return;
         }
@@ -366,13 +513,14 @@ export function startServer() {
 
         reseatPlayers(room);
       } else {
+        clearSocketBindings(socket.id);
         room.players = room.players.map((player) =>
-          player.id === socket.id ? { ...player, connectionState: 'disconnected' } : player
+          player.id === playerId ? { ...player, connectionState: 'disconnected' } : player
         );
 
         if (room.gameState) {
           room.gameState.players = room.gameState.players.map((player) =>
-            player.id === socket.id ? { ...player, connectionState: 'disconnected' } : player
+            player.id === playerId ? { ...player, connectionState: 'disconnected' } : player
           );
         }
       }
