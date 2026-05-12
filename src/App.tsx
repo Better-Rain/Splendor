@@ -1511,7 +1511,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${currentRoom ? ' app-shell-room' : ''}${gameStarted ? ' app-shell-game' : ''}`}>
       <header className="app-header">
         <div>
           <p className="eyebrow">{copy.eyebrow}</p>
@@ -1531,59 +1531,85 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="workspace">
+      <main className={`workspace${currentRoom ? ' workspace-table-mode' : ''}${gameStarted ? ' workspace-in-game' : ''}`}>
         <section className="panel panel-primary">
           <div className={`notice notice-${notice.tone}`}>{notice.message}</div>
 
-          <div className="panel-block">
-            <div className="section-heading">
-              <h2>{copy.playerSetupTitle}</h2>
-              <p>{copy.playerSetupDescription}</p>
+          {!currentRoom && (
+            <>
+              <div className="panel-block">
+                <div className="section-heading">
+                  <h2>{copy.playerSetupTitle}</h2>
+                  <p>{copy.playerSetupDescription}</p>
+                </div>
+
+                <label className="field">
+                  <span>{copy.displayName}</span>
+                  <input
+                    type="text"
+                    value={playerName}
+                    onChange={(event) => setPlayerName(event.target.value)}
+                    placeholder={copy.displayNamePlaceholder}
+                  />
+                </label>
+              </div>
+
+              <div className="panel-grid">
+                <div className="card">
+                  <h3>{copy.hostTableTitle}</h3>
+                  <p>{copy.hostTableDescription}</p>
+                  <button onClick={createRoom} disabled={!playerName.trim() || !connected}>
+                    {copy.createRoom}
+                  </button>
+                </div>
+
+                <div className="card">
+                  <h3>{copy.joinTableTitle}</h3>
+                  <p>{copy.joinTableDescription}</p>
+                  <label className="field">
+                    <span>{copy.roomCode}</span>
+                    <input
+                      type="text"
+                      value={roomId}
+                      onChange={(event) => setRoomId(event.target.value)}
+                      placeholder={copy.roomCodePlaceholder}
+                    />
+                  </label>
+                  <button
+                    onClick={joinRoom}
+                    disabled={!playerName.trim() || !roomId.trim() || !connected}
+                  >
+                    {copy.joinRoom}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {currentRoom && gameStarted && (
+            <div className="room-dock">
+              <div>
+                <span className="eyebrow">{copy.currentRoom}</span>
+                <strong>{currentRoom.name}</strong>
+                <span className="room-code">
+                  {copy.roomCodeLabel} {currentRoom.id}
+                </span>
+              </div>
+              <div className="room-actions">
+                <button className="secondary" onClick={copyRoomCode}>
+                  {copy.copyCode}
+                </button>
+                {canCloseRoom && (
+                  <button className="danger" onClick={closeRoom}>
+                    {copy.closeRoom}
+                  </button>
+                )}
+              </div>
             </div>
+          )}
 
-            <label className="field">
-              <span>{copy.displayName}</span>
-              <input
-                type="text"
-                value={playerName}
-                onChange={(event) => setPlayerName(event.target.value)}
-                placeholder={copy.displayNamePlaceholder}
-              />
-            </label>
-          </div>
-
-          <div className="panel-grid">
-            <div className="card">
-              <h3>{copy.hostTableTitle}</h3>
-              <p>{copy.hostTableDescription}</p>
-              <button onClick={createRoom} disabled={!playerName.trim() || !connected}>
-                {copy.createRoom}
-              </button>
-            </div>
-
-            <div className="card">
-              <h3>{copy.joinTableTitle}</h3>
-              <p>{copy.joinTableDescription}</p>
-              <label className="field">
-                <span>{copy.roomCode}</span>
-                <input
-                  type="text"
-                  value={roomId}
-                  onChange={(event) => setRoomId(event.target.value)}
-                  placeholder={copy.roomCodePlaceholder}
-                />
-              </label>
-              <button
-                onClick={joinRoom}
-                disabled={!playerName.trim() || !roomId.trim() || !connected}
-              >
-                {copy.joinRoom}
-              </button>
-            </div>
-          </div>
-
-          {currentRoom && (
-            <div className="room-surface">
+          {currentRoom && !gameStarted && (
+            <div className="room-surface lobby-table-scene">
               <div className="room-meta">
                 <div>
                   <p className="eyebrow">{copy.currentRoom}</p>
@@ -1614,7 +1640,7 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="room-columns">
+              <div className="room-columns lobby-table-layout">
                 <div>
                   <div className="section-heading compact">
                     <h3>{copy.seatsTitle}</h3>
@@ -1641,6 +1667,15 @@ const App: React.FC = () => {
                             ? copy.connectedState
                             : copy.disconnectedState}
                         </span>
+                      </li>
+                    ))}
+                    {Array.from({ length: Math.max(0, 4 - seatedPlayers.length) }, (_, index) => (
+                      <li className="empty-seat" key={`empty-seat-${index}`}>
+                        <div>
+                          <strong>{language === 'zh-CN' ? '等待玩家' : 'Waiting for player'}</strong>
+                          <span>{copy.seatLabel(seatedPlayers.length + index + 1)}</span>
+                        </div>
+                        <span className="chip">{language === 'zh-CN' ? '空位' : 'Open'}</span>
                       </li>
                     ))}
                   </ul>
@@ -1722,19 +1757,20 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              {gameView === 'overview' && (
-                <div className="game-view-frame" key="overview">
+              <div className="game-view-frame game-table-overview" key="overview">
                   <div className="board-grid">
                 <div className="summary-card">
                   <h3>{copy.bankTitle}</h3>
                   <div className="token-grid">
                     {BONUS_COLORS.map((color) => (
-                      <div className="token-chip" key={color}>
+                      <div className={`token-chip token-chip-${color}`} key={color}>
+                        <span className={`gem-orb gem-orb-${color}`} />
                         <span>{tokenLabels[color]}</span>
                         <strong>{gameState.gemSupply[color]}</strong>
                       </div>
                     ))}
                     <div className="token-chip token-chip-gold">
+                      <span className="gem-orb gem-orb-gold" />
                       <span>{copy.gold}</span>
                       <strong>{gameState.gemSupply.gold}</strong>
                     </div>
@@ -1762,9 +1798,10 @@ const App: React.FC = () => {
                         <strong>{localGamePlayer.nobles.length}</strong>
                       </div>
                     </div>
-                    <div className="token-grid token-grid-player">
-                      {BONUS_COLORS.map((color) => (
-                        <div className="token-chip" key={`player-${color}`}>
+                      <div className="token-grid token-grid-player">
+                        {BONUS_COLORS.map((color) => (
+                        <div className={`token-chip token-chip-${color}`} key={`player-${color}`}>
+                          <span className={`gem-orb gem-orb-${color}`} />
                           <span>{tokenLabels[color]}</span>
                           <strong>
                             {localGamePlayer.tokens[color]} {copy.tokenUnit} | {localGamePlayer.bonuses[color]}{' '}
@@ -1773,12 +1810,31 @@ const App: React.FC = () => {
                         </div>
                       ))}
                       <div className="token-chip token-chip-gold">
+                        <span className="gem-orb gem-orb-gold" />
                         <span>{copy.gold}</span>
                         <strong>{localGamePlayer.tokens.gold}</strong>
                       </div>
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="summary-card noble-gallery-card">
+                <h3>{copy.nobles}</h3>
+                <div className="noble-gallery">
+                  {gameState.nobles.map((noble) => (
+                    <div className="noble-tile" key={noble.id}>
+                      <div>
+                        <strong>{noble.points}</strong>
+                        <span>{copy.prestige}</span>
+                      </div>
+                      <p>{noble.id}</p>
+                      <small>
+                        {copy.nobleRequirement}: {formatNobleRequirement(noble, tokenLabels)}
+                      </small>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {pendingNobleClaim && (
@@ -1821,7 +1877,8 @@ const App: React.FC = () => {
                   <p>{copy.returnPanelProjected}</p>
                   <div className="token-grid token-grid-player">
                     {GEM_COLORS.map((color) => (
-                      <div className="token-chip" key={`projected-${color}`}>
+                      <div className={`token-chip token-chip-${color}`} key={`projected-${color}`}>
+                        <span className={`gem-orb gem-orb-${color}`} />
                         <span>{tokenLabels[color]}</span>
                         <strong>{pendingReturnAction.projectedTokens[color]}</strong>
                       </div>
@@ -1959,10 +2016,8 @@ const App: React.FC = () => {
                 <p className="helper-note">{copy.hiddenReserveNote}</p>
                   </div>
                 </div>
-              )}
 
-              {gameView === 'market' && (
-                <div className="game-view-frame" key="market">
+                <div className="game-view-frame game-table-market" key="market">
                   <div className="summary-card">
                 <h3>{copy.marketTitle}</h3>
                 <div className="market-columns">
@@ -2000,10 +2055,8 @@ const App: React.FC = () => {
                   </div>
                 )}
                 </div>
-              )}
 
-              {gameView === 'players' && (
-                <div className="game-view-frame" key="players">
+                <div className="game-view-frame game-table-players" key="players">
                   <div className="summary-card">
                 <h3>{copy.playersTitle}</h3>
                 <div className="player-table">
@@ -2100,10 +2153,8 @@ const App: React.FC = () => {
                 </div>
                   </div>
                 </div>
-              )}
 
-              {gameView === 'log' && (
-                <div className="game-view-frame" key="log">
+                <div className="game-view-frame game-table-log" key="log">
                   <div className="summary-card">
                 <h3>{copy.recentLogTitle}</h3>
                 {gameState.log.length > 0 ? (
@@ -2144,7 +2195,6 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
-          )}
 
             </div>
           )}
