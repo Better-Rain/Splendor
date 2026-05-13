@@ -1949,7 +1949,6 @@ const App: React.FC = () => {
 
                 <div className="game-view-frame game-table-market" key="market">
                   <section className="table-zone market-card">
-                <h3>{copy.marketTitle}</h3>
                 <div className="market-columns">
                   {(['level1', 'level2', 'level3'] as const).map((levelKey, index) => (
                     <div key={levelKey}>
@@ -2085,11 +2084,10 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="game-view-frame game-table-log" key="log">
-                  <div className="summary-card log-card">
-                <h3>{copy.recentLogTitle}</h3>
+                  <div className="log-card event-strip">
                 {gameState.log.length > 0 ? (
                   <div className="log-list">
-                    {[...gameState.log].slice(-8).reverse().map((entry, index) => {
+                    {[...gameState.log].slice(-10).reverse().map((entry, index) => {
                       const displayEntry = formatActionLogDisplay(
                         entry,
                         playersById,

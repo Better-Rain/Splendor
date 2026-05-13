@@ -1629,31 +1629,45 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .market-columns {
-  height: calc(100% - 28px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  height: 100%;
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .workspace-in-game .market-columns > div {
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: 86px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   padding: 8px;
   border-radius: 14px;
 }
 
+.workspace-in-game .market-columns .section-heading {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0;
+  padding-right: 8px;
+  border-right: 1px solid rgba(62, 74, 59, 0.1);
+}
+
 .workspace-in-game .market-columns .section-heading h3 {
+  margin: 0;
   font-size: 0.86rem;
 }
 
 .workspace-in-game .market-columns .section-heading p {
+  margin: 1px 0 0;
   font-size: 0.68rem;
 }
 
 .workspace-in-game .market-card .card-grid {
   min-height: 0;
-  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
   gap: 7px;
   overflow: auto;
 }
@@ -1791,6 +1805,44 @@ button.danger:hover:not(:disabled) {
   display: none;
 }
 
+.workspace-in-game .event-strip {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace-in-game .event-strip .log-list {
+  height: 100%;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(150px, 1fr);
+  grid-template-columns: none;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+
+.workspace-in-game .event-strip .log-entry {
+  min-width: 0;
+  height: 100%;
+  align-content: start;
+  background: rgba(255, 252, 241, 0.82);
+}
+
+.workspace-in-game .event-strip .log-entry-header {
+  gap: 5px;
+}
+
+.workspace-in-game .event-strip .log-turn-badge,
+.workspace-in-game .event-strip .log-action-badge {
+  padding: 3px 6px;
+  font-size: 0.58rem;
+}
+
 .workspace-in-game .return-panel,
 .workspace-in-game .noble-choice-panel {
   position: absolute;
@@ -1914,7 +1966,7 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .market-columns {
-  height: calc(100% - 24px);
+  height: 100%;
 }
 
 .workspace-in-game .market-columns > div {
@@ -1923,7 +1975,7 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .market-card .card-grid {
-  grid-template-columns: repeat(2, minmax(128px, 1fr));
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
 }
 
 .workspace-in-game .development-card {
