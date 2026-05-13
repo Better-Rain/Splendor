@@ -2478,8 +2478,8 @@ button.danger:hover:not(:disabled) {
   right: 22px;
   bottom: 72px;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 66px;
-  gap: 10px;
+  grid-template-rows: minmax(0, 1fr) 58px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -2495,15 +2495,15 @@ button.danger:hover:not(:disabled) {
 .workspace-in-game .market-columns {
   height: 100%;
   grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .workspace-in-game .market-columns > div {
   min-height: 0;
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  gap: 10px;
-  padding: 8px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 8px;
   border-radius: 18px;
   background: rgba(20, 49, 36, 0.06);
 }
@@ -2540,8 +2540,8 @@ button.danger:hover:not(:disabled) {
 
 .workspace-in-game .market-card .card-grid {
   display: flex;
-  align-items: stretch;
-  gap: clamp(10px, 0.9vw, 16px);
+  align-items: center;
+  gap: clamp(8px, 0.8vw, 14px);
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -2550,15 +2550,17 @@ button.danger:hover:not(:disabled) {
 
 .workspace-in-game .market-card .card-grid > .development-card {
   flex: 0 0 auto;
-  width: auto;
-  height: 100%;
+  width: clamp(148px, calc((100% - 42px) / 4), 184px);
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
   aspect-ratio: 0.72 / 1;
 }
 
 .workspace-in-game .development-card {
   min-width: 0;
   min-height: 0;
-  padding: 8px;
+  padding: 9px;
   border-radius: 14px;
 }
 
@@ -2585,7 +2587,7 @@ button.danger:hover:not(:disabled) {
 .workspace-in-game .reserved-card-panel .card-grid {
   display: flex;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   height: 100%;
   overflow: hidden;
 }
