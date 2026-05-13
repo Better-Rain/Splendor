@@ -2285,6 +2285,7 @@ button.danger:hover:not(:disabled) {
 
 .workspace-in-game .panel-primary {
   position: relative;
+  place-items: center;
   grid-template-rows: minmax(0, 1fr);
   gap: 0;
   padding: 0;
@@ -2352,14 +2353,14 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .game-shell {
-  width: min(1500px, calc(100vw - 24px));
-  height: min(880px, calc(100vh - 24px));
-  margin: 12px auto;
+  width: min(1360px, calc(100vw - 56px));
+  height: min(820px, calc(100vh - 64px));
+  margin: 0;
   display: grid;
-  grid-template-columns: clamp(166px, 15vw, 220px) minmax(0, 1fr);
+  grid-template-columns: clamp(168px, 14vw, 210px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   grid-template-areas: "overview market";
-  gap: 8px;
+  gap: 10px;
   padding: 10px;
   border-width: 7px;
   border-radius: 26px;
@@ -2451,7 +2452,7 @@ button.danger:hover:not(:disabled) {
   grid-area: market;
   display: grid;
   grid-template-rows: minmax(0, 1fr) minmax(0, 68px);
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -2464,21 +2465,23 @@ button.danger:hover:not(:disabled) {
 .workspace-in-game .market-columns {
   height: 100%;
   grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .workspace-in-game .market-columns > div {
-  grid-template-columns: 68px minmax(0, 1fr);
-  padding: 5px;
+  grid-template-columns: 60px minmax(0, 1fr);
+  padding: 7px;
 }
 
 .workspace-in-game .market-card .card-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(108px, clamp(118px, 11.5vw, 156px)));
-  gap: 8px;
-  justify-content: space-between;
+  grid-template-columns: repeat(4, var(--market-card-width));
+  gap: var(--market-card-gap);
+  justify-content: start;
   align-items: stretch;
   overflow: hidden;
+  --market-card-width: clamp(126px, 10.4vw, 150px);
+  --market-card-gap: clamp(12px, 1vw, 18px);
 }
 
 .workspace-in-game .development-card {
@@ -2580,9 +2583,9 @@ button.danger:hover:not(:disabled) {
 .workspace-in-game .game-table-log {
   position: absolute;
   z-index: 18;
-  right: 18px;
-  bottom: 16px;
-  left: max(240px, calc((100vw - min(1500px, calc(100vw - 24px))) / 2 + 230px));
+  right: max(24px, calc((100vw - min(1360px, calc(100vw - 56px))) / 2 + 18px));
+  bottom: max(24px, calc((100vh - min(820px, calc(100vh - 64px))) / 2 + 16px));
+  left: max(250px, calc((100vw - min(1360px, calc(100vw - 56px))) / 2 + 238px));
   height: 46px;
   min-height: 0;
   overflow: hidden;
