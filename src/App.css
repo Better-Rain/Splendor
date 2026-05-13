@@ -2110,6 +2110,163 @@ button.danger:hover:not(:disabled) {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+/* Direct tabletop action pass: actions live on the pieces, not in a separate panel. */
+.workspace-in-game .game-shell {
+  grid-template-columns: minmax(190px, 0.38fr) minmax(760px, 1.95fr) minmax(215px, 0.45fr);
+  grid-template-rows: 36px minmax(0, 1fr) 76px;
+  gap: 6px;
+  padding: 8px;
+}
+
+.workspace-in-game .game-table-overview {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+  overflow: hidden;
+}
+
+.workspace-in-game .token-grid {
+  gap: 6px;
+}
+
+.workspace-in-game .token-chip {
+  min-height: 58px;
+  padding: 6px;
+}
+
+.workspace-in-game .token-chip-with-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.workspace-in-game .token-chip-main {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.workspace-in-game .token-chip-main:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.workspace-in-game .token-chip-double {
+  align-self: stretch;
+  min-width: 0;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 0.64rem;
+}
+
+.workspace-in-game .compact-token-actions {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.workspace-in-game .compact-token-actions span {
+  font-size: 0.66rem;
+}
+
+.workspace-in-game .compact-token-actions button {
+  min-height: 28px;
+  padding: 4px 6px;
+  font-size: 0.66rem;
+}
+
+.workspace-in-game .market-columns {
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.workspace-in-game .market-columns > div {
+  grid-template-columns: 72px minmax(0, 1fr);
+  padding: 5px;
+  align-items: stretch;
+}
+
+.workspace-in-game .market-columns .section-heading {
+  gap: 4px;
+  justify-content: space-between;
+  padding-right: 6px;
+}
+
+.workspace-in-game .market-columns .section-heading h3 {
+  font-size: 0.78rem;
+}
+
+.workspace-in-game .market-columns .section-heading p {
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+.workspace-in-game .deck-reserve-button {
+  min-height: 24px;
+  min-width: 0;
+  padding: 3px 5px;
+  border-radius: 9px;
+  font-size: 0.62rem;
+}
+
+.workspace-in-game .market-card .card-grid {
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  overflow: hidden;
+}
+
+.workspace-in-game .development-card {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 6px;
+}
+
+.workspace-in-game .development-card-body {
+  grid-template-rows: minmax(24px, 1fr) auto auto;
+  gap: 4px;
+  margin: 3px 0;
+}
+
+.workspace-in-game .card-art-mark {
+  min-height: 24px;
+}
+
+.workspace-in-game .cost-badges {
+  flex-wrap: wrap;
+  gap: 3px;
+  min-height: 22px;
+}
+
+.workspace-in-game .cost-badge {
+  width: 21px;
+  height: 21px;
+  font-size: 0.66rem;
+}
+
+.workspace-in-game .card-actions {
+  gap: 4px;
+}
+
+.workspace-in-game .card-actions button {
+  padding: 3px 5px;
+  font-size: 0.58rem;
+}
+
+.game-table-market {
+  gap: 5px;
+}
+
+.game-table-market .reserved-card-panel {
+  max-height: 76px;
+}
+
 @media (max-width: 1080px) {
   .workspace,
   .panel-grid,

@@ -1350,6 +1350,28 @@ const App: React.FC = () => {
     setSelectedDistinctColors([]);
   };
 
+  const takeTwoSameTokens = (color: BonusColor) => {
+    queueAction(
+      {
+        type: 'take_two_same_tokens',
+        color
+      },
+      copy.takeTwoSame(tokenLabels[color])
+    );
+    setSelectedDistinctColors([]);
+  };
+
+  const reserveDeckTop = (level: CardLevel) => {
+    queueAction(
+      {
+        type: 'reserve_card',
+        level,
+        source: 'deck'
+      },
+      copy.reserveTopLevel(level)
+    );
+  };
+
   const submitNobleClaim = (nobleId: string) => {
     submitAction(
       {
@@ -1747,21 +1769,40 @@ const App: React.FC = () => {
                 <section className="table-zone bank-zone">
                   <h3>{copy.bankTitle}</h3>
                   <div className="token-grid">
-                    {BONUS_COLORS.map((color) => (
-                      <button
-                        className={`token-chip token-chip-${color}${
-                          selectedDistinctColorSet.has(color) ? ' selected' : ''
-                        }`}
-                        key={color}
-                        disabled={!isLocalPlayersTurn || (gameState?.gemSupply[color] ?? 0) <= 0}
-                        onClick={() => toggleDistinctColor(color)}
-                        type="button"
-                      >
-                        <span className={`gem-orb gem-orb-${color}`} />
-                        <span>{tokenLabels[color]}</span>
-                        <strong>{gameState.gemSupply[color]}</strong>
-                      </button>
-                    ))}
+                    {BONUS_COLORS.map((color) => {
+                      const supply = gameState.gemSupply[color];
+                      const canTakeAny = isLocalPlayersTurn && supply > 0;
+                      const canTakeTwo = isLocalPlayersTurn && supply >= 4;
+
+                      return (
+                        <div
+                          className={`token-chip token-chip-${color} token-chip-with-actions${
+                            selectedDistinctColorSet.has(color) ? ' selected' : ''
+                          }`}
+                          key={color}
+                        >
+                          <button
+                            className="token-chip-main"
+                            disabled={!canTakeAny}
+                            onClick={() => toggleDistinctColor(color)}
+                            type="button"
+                          >
+                            <span className={`gem-orb gem-orb-${color}`} />
+                            <span>{tokenLabels[color]}</span>
+                            <strong>{supply}</strong>
+                          </button>
+                          <button
+                            className="token-chip-double"
+                            disabled={!canTakeTwo}
+                            onClick={() => takeTwoSameTokens(color)}
+                            title={copy.takeTwoSame(tokenLabels[color])}
+                            type="button"
+                          >
+                            x2
+                          </button>
+                        </div>
+                      );
+                    })}
                     <div className="token-chip token-chip-gold">
                       <span className="gem-orb gem-orb-gold" />
                       <span>{copy.gold}</span>
@@ -1886,73 +1927,44 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <section className="table-zone action-panel-card">
-                <h3>{copy.actionPanelTitle}</h3>
-                <div className="action-grid">
-                  {BONUS_COLORS.map((color) => (
-                    <button
-                      key={`double-${color}`}
-                      disabled={!isLocalPlayersTurn || (gameState?.gemSupply[color] ?? 0) < 4}
-                      onClick={() =>
-                        queueAction(
-                          {
-                            type: 'take_two_same_tokens',
-                            color
-                          },
-                          copy.takeTwoSame(tokenLabels[color])
-                        )
-                      }
-                    >
-                      {copy.takeTwoSame(tokenLabels[color])}
-                    </button>
-                  ))}
-                  {[1, 2, 3].map((level) => (
-                    <button
-                      className="secondary"
-                      key={`deck-${level}`}
-                      disabled={
-                        !isLocalPlayersTurn ||
-                        !localGamePlayer ||
-                        localGamePlayer.reservedCards.length >= RESERVED_CARD_LIMIT ||
-                        (gameState?.decks[`level${level}` as 'level1' | 'level2' | 'level3'].length ?? 0) === 0
-                      }
-                      onClick={() =>
-                        queueAction(
-                          {
-                            type: 'reserve_card',
-                            level: level as 1 | 2 | 3,
-                            source: 'deck'
-                          },
-                          copy.reserveTopLevel(level)
-                        )
-                      }
-                    >
-                      {copy.reserveTopLevel(level)}
-                    </button>
-                  ))}
-                </div>
-              </section>
               </div>
 
                 <div className="game-view-frame game-table-market" key="market">
                   <section className="table-zone market-card">
                 <div className="market-columns">
-                  {(['level1', 'level2', 'level3'] as const).map((levelKey, index) => (
+                  {(['level1', 'level2', 'level3'] as const).map((levelKey, index) => {
+                    const level = (index + 1) as CardLevel;
+                    const canReserveDeckTop =
+                      isLocalPlayersTurn &&
+                      !!localGamePlayer &&
+                      localGamePlayer.reservedCards.length < RESERVED_CARD_LIMIT &&
+                      gameState.decks[levelKey].length > 0;
+
+                    return (
                     <div key={levelKey}>
                       <div className="section-heading compact">
-                        <h3>{copy.levelTitle(index + 1)}</h3>
+                        <h3>{copy.levelTitle(level)}</h3>
                         <p>
                           {copy.marketCounts(
                             gameState.visibleCards[levelKey].length,
                             gameState.decks[levelKey].length
                           )}
                         </p>
+                        <button
+                          className="deck-reserve-button"
+                          disabled={!canReserveDeckTop}
+                          onClick={() => reserveDeckTop(level)}
+                          type="button"
+                        >
+                          {copy.reserve}
+                        </button>
                       </div>
                       <div className="card-grid">
                         {gameState.visibleCards[levelKey].map((card) => renderCard(card, 'board'))}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 
