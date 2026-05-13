@@ -814,6 +814,8 @@ const App: React.FC = () => {
   const [pendingReturnAction, setPendingReturnAction] = useState<PendingReturnAction | null>(null);
   const [returnedTokens, setReturnedTokens] = useState<TokenSupply>(createEmptyTokenSupply);
   const [gameView, setGameView] = useState<GameView>('overview');
+  const [roomDockExpanded, setRoomDockExpanded] = useState(false);
+  const [playersDockExpanded, setPlayersDockExpanded] = useState(false);
   const [notice, setNotice] = useState<NoticeState>({
     tone: 'info',
     message: UI_COPY[getInitialLanguage()].defaultNotice
@@ -1595,24 +1597,34 @@ const App: React.FC = () => {
           )}
 
           {currentRoom && gameStarted && (
-            <div className="room-dock">
-              <div>
+            <div className={`room-dock floating-dock${roomDockExpanded ? ' expanded' : ''}`}>
+              <button
+                className="dock-toggle"
+                onClick={() => setRoomDockExpanded((expanded) => !expanded)}
+                type="button"
+              >
                 <span className="eyebrow">{copy.currentRoom}</span>
                 <strong>{currentRoom.name}</strong>
-                <span className="room-code">
-                  {copy.roomCodeLabel} {currentRoom.id}
-                </span>
-              </div>
-              <div className="room-actions">
-                <button className="secondary" onClick={copyRoomCode}>
-                  {copy.copyCode}
-                </button>
-                {canCloseRoom && (
-                  <button className="danger" onClick={closeRoom}>
-                    {copy.closeRoom}
-                  </button>
-                )}
-              </div>
+                <span className="room-code">{currentRoom.id}</span>
+              </button>
+              {roomDockExpanded && (
+                <div className="dock-panel">
+                  <div>
+                    <span className="eyebrow">{copy.roomCodeLabel}</span>
+                    <strong>{currentRoom.id}</strong>
+                  </div>
+                  <div className="room-actions">
+                    <button className="secondary" onClick={copyRoomCode}>
+                      {copy.copyCode}
+                    </button>
+                    {canCloseRoom && (
+                      <button className="danger" onClick={closeRoom}>
+                        {copy.closeRoom}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1984,7 +1996,21 @@ const App: React.FC = () => {
                 )}
                 </div>
 
-                <div className="game-view-frame game-table-players" key="players">
+                <button
+                  className={`players-dock-toggle${playersDockExpanded ? ' expanded' : ''}`}
+                  onClick={() => setPlayersDockExpanded((expanded) => !expanded)}
+                  type="button"
+                >
+                  <span>{copy.playersTitle}</span>
+                  <strong>{activePlayer?.name ?? 'Unknown'}</strong>
+                </button>
+
+                <div
+                  className={`game-view-frame game-table-players floating-players${
+                    playersDockExpanded ? ' expanded' : ''
+                  }`}
+                  key="players"
+                >
                   <div className="summary-card players-card">
                 <h3>{copy.playersTitle}</h3>
                 <div className="player-table">
