@@ -159,6 +159,7 @@ Current UI is too saturated and generic. The target style is:
 - [x] Harden Socket.IO LAN CORS handling for `file://`, localhost, and private LAN browser clients.
 - [x] Restrict the development server watcher so host snapshot writes do not restart the server and race port `3001`.
 - [x] Replace the tabbed in-match layout with a table-scene layout that keeps the bank, nobles, market, players, and log visible together.
+- [x] Rebalance the match UI into a fixed-height table view with a dominant market area and compact side rails for secondary information.
 
 ## Notes On Card Data
 

@@ -1759,7 +1759,7 @@ const App: React.FC = () => {
 
               <div className="game-view-frame game-table-overview" key="overview">
                   <div className="board-grid">
-                <div className="summary-card">
+                <div className="summary-card bank-card">
                   <h3>{copy.bankTitle}</h3>
                   <div className="token-grid">
                     {BONUS_COLORS.map((color) => (
@@ -1778,7 +1778,7 @@ const App: React.FC = () => {
                 </div>
 
                 {localGamePlayer && (
-                  <div className="summary-card">
+                  <div className="summary-card local-tableau-card">
                     <h3>{copy.yourTableauTitle}</h3>
                     <div className="market-stats">
                       <div>
@@ -1929,7 +1929,7 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <div className="summary-card">
+              <div className="summary-card action-panel-card">
                 <h3>{copy.actionPanelTitle}</h3>
                 <p>{copy.actionPanelDescription}</p>
                 <div className="distinct-token-picker">
@@ -2018,7 +2018,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="game-view-frame game-table-market" key="market">
-                  <div className="summary-card">
+                  <div className="summary-card market-card">
                 <h3>{copy.marketTitle}</h3>
                 <div className="market-columns">
                   {(['level1', 'level2', 'level3'] as const).map((levelKey, index) => (
@@ -2041,7 +2041,7 @@ const App: React.FC = () => {
               </div>
 
               {localGamePlayer && (
-                <div className="summary-card">
+                <div className="summary-card reserved-card-panel">
                   <h3>{copy.reservedCardsTitle}</h3>
                   {localGamePlayer.reservedCards.length > 0 ? (
                     <div className="card-grid">
@@ -2057,7 +2057,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="game-view-frame game-table-players" key="players">
-                  <div className="summary-card">
+                  <div className="summary-card players-card">
                 <h3>{copy.playersTitle}</h3>
                 <div className="player-table">
                   {gameState.players.map((player) => {
@@ -2155,7 +2155,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="game-view-frame game-table-log" key="log">
-                  <div className="summary-card">
+                  <div className="summary-card log-card">
                 <h3>{copy.recentLogTitle}</h3>
                 {gameState.log.length > 0 ? (
                   <div className="log-list">
