@@ -652,6 +652,35 @@ button.danger:hover:not(:disabled) {
   background: rgba(51, 59, 66, 0.18);
 }
 
+.card-points {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 252, 241, 0.92);
+  color: var(--ink-strong);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+.card-art-mark {
+  min-height: 34px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 28% 28%, rgba(255, 255, 255, 0.42), transparent 18%),
+    radial-gradient(circle at 72% 62%, rgba(255, 255, 255, 0.22), transparent 22%),
+    rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.card-pay-state {
+  width: max-content;
+  border-radius: 999px;
+  padding: 4px 7px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 .return-panel {
   border-color: rgba(167, 130, 63, 0.24);
 }
@@ -1670,34 +1699,80 @@ button.danger:hover:not(:disabled) {
   grid-template-columns: repeat(4, minmax(120px, 1fr));
   gap: 7px;
   overflow: auto;
+  align-items: stretch;
 }
 
 .workspace-in-game .development-card {
-  min-height: 158px;
-  padding: 8px;
-  border-radius: 12px;
+  min-height: 184px;
+  padding: 7px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.34), transparent 20%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+  color: #f8f1dd;
+}
+
+.workspace-in-game .card-theme-diamond {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.5), transparent 19%),
+    linear-gradient(145deg, #d9e0e4, #8b98a0);
+}
+
+.workspace-in-game .card-theme-sapphire {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.34), transparent 19%),
+    linear-gradient(145deg, #2f69b5, #132f67);
+}
+
+.workspace-in-game .card-theme-emerald {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.32), transparent 19%),
+    linear-gradient(145deg, #2f8b5c, #143f2b);
+}
+
+.workspace-in-game .card-theme-ruby {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.32), transparent 19%),
+    linear-gradient(145deg, #a93435, #5b1d23);
+}
+
+.workspace-in-game .card-theme-onyx {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.28), transparent 19%),
+    linear-gradient(145deg, #3e4950, #11171b);
 }
 
 .workspace-in-game .development-card-header {
   gap: 6px;
+  align-items: flex-start;
 }
 
 .workspace-in-game .development-card-header strong {
-  font-size: 0.8rem;
+  font-size: 0.92rem;
 }
 
 .workspace-in-game .bonus-badge {
+  max-width: 78px;
+  overflow: hidden;
   padding: 4px 7px;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(255, 252, 241, 0.8);
+  color: var(--ink-strong);
 }
 
 .workspace-in-game .development-card-body {
-  margin: 6px 0;
+  display: grid;
+  grid-template-rows: minmax(42px, 1fr) auto auto;
+  gap: 6px;
+  margin: 5px 0;
 }
 
-.workspace-in-game .card-id {
-  margin-bottom: 5px;
-  font-size: 0.62rem;
+.workspace-in-game .card-art-mark {
+  min-height: 36px;
 }
 
 .workspace-in-game .card-cost-label {
@@ -1705,13 +1780,26 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .cost-badges {
+  display: flex;
   gap: 4px;
+  align-items: center;
+  min-height: 28px;
 }
 
 .workspace-in-game .cost-badge {
-  padding: 4px 6px;
-  gap: 1px 4px;
-  font-size: 0.62rem;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow:
+    inset -4px -5px 8px rgba(0, 0, 0, 0.2),
+    inset 4px 4px 8px rgba(255, 255, 255, 0.34),
+    0 5px 8px rgba(0, 0, 0, 0.12);
+  font-size: 0.72rem;
+  color: var(--ink-strong);
 }
 
 .workspace-in-game .cost-badge small,
@@ -1719,13 +1807,44 @@ button.danger:hover:not(:disabled) {
   display: none;
 }
 
+.workspace-in-game .cost-badge-discounted {
+  outline: 2px solid rgba(244, 217, 139, 0.72);
+}
+
+.workspace-in-game .cost-free {
+  padding: 4px 7px;
+  font-size: 0.62rem;
+  background: rgba(255, 252, 241, 0.82);
+}
+
+.workspace-in-game .card-pay-state {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 3px 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(255, 252, 241, 0.82);
+}
+
 .workspace-in-game .card-actions {
   gap: 5px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
 }
 
 .workspace-in-game .card-actions button {
-  padding: 6px 8px;
-  font-size: 0.68rem;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 0.62rem;
+}
+
+.workspace-in-game .reserved-card-panel .development-card {
+  min-height: 128px;
+}
+
+.workspace-in-game .reserved-card-panel .card-art-mark,
+.workspace-in-game .reserved-card-panel .card-pay-state {
+  display: none;
 }
 
 .workspace-in-game .players-card {

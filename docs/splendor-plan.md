@@ -162,6 +162,7 @@ Current UI is too saturated and generic. The target style is:
 - [x] Rebalance the match UI into a fixed-height table view with a dominant market area and compact side rails for secondary information.
 - [x] Simplify the match DOM by removing repeated local-player summaries and making the bank tokens double as the take-different-gems interaction.
 - [x] Convert the market to three horizontal card rows and compress the action log into a low-height event strip.
+- [x] Reduce development-card information density into compact themed card faces with numeric cost gems and tooltip details.
 
 ## Notes On Card Data
 

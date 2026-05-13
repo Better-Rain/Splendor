@@ -193,7 +193,6 @@ const UI_COPY = {
     noGoldNeeded: '不需要黄金',
     goldNeeded: (count: number) => `需使用 ${count} 枚黄金`,
     missingTokens: (count: number) => `还差 ${count} 枚宝石或黄金`,
-    colorShortfall: '颜色短缺',
     marketTitle: '市场',
     levelTitle: (level: number) => `${level} 级`,
     marketCounts: (visible: number, left: number) => `${visible} 张明牌 | 牌堆剩余 ${left} 张`,
@@ -369,7 +368,6 @@ const UI_COPY = {
     noGoldNeeded: 'No gold needed',
     goldNeeded: (count: number) => `Uses ${count} gold`,
     missingTokens: (count: number) => `Missing ${count} token${count === 1 ? '' : 's'} or gold`,
-    colorShortfall: 'Color shortfall',
     marketTitle: 'Market',
     levelTitle: (level: number) => `Level ${level}`,
     marketCounts: (visible: number, left: number) => `${visible} face-up | ${left} left in deck`,
@@ -608,12 +606,6 @@ function formatNobleRequirement(
 ) {
   return BONUS_COLORS.filter((color) => noble.requirement[color] > 0)
     .map((color) => `${tokenLabels[color]} ${noble.requirement[color]}`)
-    .join(' | ');
-}
-
-function formatColorShortfall(breakdown: CardCostBreakdown, tokenLabels: TokenLabelMap): string {
-  return BONUS_COLORS.filter((color) => breakdown.shortfallByColor[color] > 0)
-    .map((color) => `${tokenLabels[color]} ${breakdown.shortfallByColor[color]}`)
     .join(' | ');
 }
 
@@ -1391,7 +1383,6 @@ const App: React.FC = () => {
     const breakdown = localGamePlayer ? getCardCostBreakdown(localGamePlayer, card) : null;
     const affordable = breakdown?.affordable ?? false;
     const visibleCostColors = BONUS_COLORS.filter((color) => card.cost[color] > 0);
-    const shortfallText = breakdown ? formatColorShortfall(breakdown, tokenLabels) : '';
     const canReserve =
       !!localGamePlayer &&
       isLocalPlayersTurn &&
@@ -1399,53 +1390,49 @@ const App: React.FC = () => {
     const canBuy = !!localGamePlayer && isLocalPlayersTurn && affordable;
 
     return (
-      <div className="development-card" key={`${source}-${card.id}`}>
+      <div className={`development-card card-theme-${card.bonus}`} key={`${source}-${card.id}`}>
         <div className="development-card-header">
-          <span className={`bonus-badge bonus-${card.bonus}`}>{tokenLabels[card.bonus]}</span>
-          <strong>{copy.pointsShort(card.points)}</strong>
+          <strong className="card-points">{card.points}</strong>
+          <span className={`bonus-badge bonus-${card.bonus}`} title={tokenLabels[card.bonus]}>
+            {tokenLabels[card.bonus]}
+          </span>
         </div>
         <div className="development-card-body">
-          <p className="card-id">{card.id}</p>
-          <div className="card-cost-block" aria-label={copy.costTitle}>
-            <span className="card-cost-label">{copy.costTitle}</span>
-            <div className="cost-badges">
-              {visibleCostColors.length > 0 ? (
-                visibleCostColors.map((color) => {
-                  const netCost = breakdown?.effectiveCost[color] ?? card.cost[color];
-                  const isDiscounted = netCost !== card.cost[color];
+          <div className="card-art-mark" aria-hidden="true" />
+          <div className="cost-badges" aria-label={copy.costTitle}>
+            {visibleCostColors.length > 0 ? (
+              visibleCostColors.map((color) => {
+                const netCost = breakdown?.effectiveCost[color] ?? card.cost[color];
+                const isDiscounted = netCost !== card.cost[color];
 
-                  return (
-                    <span className={`cost-badge cost-${color}`} key={`${card.id}-${color}`}>
-                      <span>{tokenLabels[color]}</span>
-                      <strong>{card.cost[color]}</strong>
-                      {isDiscounted && <small>{copy.netCost(netCost)}</small>}
-                    </span>
-                  );
-                })
-              ) : (
-                <span className="cost-free">{copy.noCost}</span>
-              )}
-            </div>
+                return (
+                  <span
+                    className={`cost-badge cost-${color}${isDiscounted ? ' cost-badge-discounted' : ''}`}
+                    key={`${card.id}-${color}`}
+                    title={`${tokenLabels[color]} ${card.cost[color]}${isDiscounted ? ` / ${copy.netCost(netCost)}` : ''}`}
+                  >
+                    <strong>{card.cost[color]}</strong>
+                  </span>
+                );
+              })
+            ) : (
+              <span className="cost-free">{copy.noCost}</span>
+            )}
           </div>
           {breakdown && (
             <div
-              className={`affordability-hint ${
+              className={`card-pay-state ${
                 breakdown.affordable ? 'affordability-hint-good' : 'affordability-hint-short'
               }`}
-            >
-              <strong>{breakdown.affordable ? copy.canPayNow : copy.cannotPayNow}</strong>
-              <span>
-                {breakdown.affordable
+              title={
+                breakdown.affordable
                   ? breakdown.goldNeeded > 0
                     ? copy.goldNeeded(breakdown.goldNeeded)
                     : copy.noGoldNeeded
-                  : copy.missingTokens(breakdown.goldShortfall)}
-              </span>
-              {!breakdown.affordable && shortfallText && (
-                <small>
-                  {copy.colorShortfall}: {shortfallText}
-                </small>
-              )}
+                  : copy.missingTokens(breakdown.goldShortfall)
+              }
+            >
+              {breakdown.affordable ? copy.canPayNow : copy.cannotPayNow}
             </div>
           )}
         </div>
