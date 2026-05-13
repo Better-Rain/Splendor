@@ -1804,6 +1804,141 @@ button.danger:hover:not(:disabled) {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
 }
 
+/* Lean tabletop pass: remove card-like chrome from core table zones and give market priority. */
+.workspace-in-game .game-shell {
+  grid-template-columns: minmax(205px, 0.42fr) minmax(720px, 1.8fr) minmax(220px, 0.48fr);
+  grid-template-rows: 38px minmax(0, 1fr) 92px;
+  gap: 8px;
+  padding: 10px;
+}
+
+.workspace-in-game .table-zone {
+  min-height: 0;
+  padding: 8px;
+  border: 1px solid rgba(232, 215, 179, 0.14);
+  border-radius: 15px;
+  background: rgba(255, 252, 241, 0.9);
+  box-shadow: 0 10px 22px rgba(3, 14, 8, 0.11);
+  color: var(--ink-strong);
+}
+
+.workspace-in-game .table-zone h3 {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+}
+
+.workspace-in-game .table-zone p {
+  margin: 4px 0 7px;
+  font-size: 0.76rem;
+}
+
+.game-table-overview {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.workspace-in-game .bank-zone {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.32), transparent 38%),
+    rgba(243, 232, 203, 0.9);
+}
+
+.workspace-in-game .token-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workspace-in-game .token-chip {
+  min-height: 66px;
+  border: 1px solid rgba(62, 74, 59, 0.13);
+  color: var(--ink-strong);
+  text-align: left;
+}
+
+.workspace-in-game button.token-chip {
+  display: block;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.workspace-in-game button.token-chip:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.workspace-in-game .token-chip strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.workspace-in-game .gem-orb {
+  width: 30px;
+  height: 30px;
+}
+
+.workspace-in-game .token-chip.selected {
+  border-color: rgba(167, 130, 63, 0.74);
+  box-shadow: inset 0 0 0 2px rgba(167, 130, 63, 0.22), 0 12px 20px rgba(3, 14, 8, 0.12);
+}
+
+.workspace-in-game .compact-token-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.workspace-in-game .noble-gallery {
+  grid-template-columns: 1fr;
+}
+
+.workspace-in-game .noble-tile {
+  min-height: 72px;
+}
+
+.workspace-in-game .action-panel-card {
+  background: rgba(255, 252, 241, 0.82);
+}
+
+.workspace-in-game .action-grid {
+  grid-template-columns: 1fr;
+  margin-top: 0;
+}
+
+.game-table-market {
+  gap: 8px;
+}
+
+.game-table-market .reserved-card-panel {
+  max-height: 86px;
+}
+
+.workspace-in-game .market-columns {
+  height: calc(100% - 24px);
+}
+
+.workspace-in-game .market-columns > div {
+  padding: 6px;
+  border-radius: 12px;
+}
+
+.workspace-in-game .market-card .card-grid {
+  grid-template-columns: repeat(2, minmax(128px, 1fr));
+}
+
+.workspace-in-game .development-card {
+  min-height: 172px;
+}
+
+.workspace-in-game .players-card,
+.workspace-in-game .log-card {
+  padding: 8px;
+}
+
+.workspace-in-game .log-list {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 @media (max-width: 1080px) {
   .workspace,
   .panel-grid,

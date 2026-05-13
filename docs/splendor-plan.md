@@ -160,6 +160,7 @@ Current UI is too saturated and generic. The target style is:
 - [x] Restrict the development server watcher so host snapshot writes do not restart the server and race port `3001`.
 - [x] Replace the tabbed in-match layout with a table-scene layout that keeps the bank, nobles, market, players, and log visible together.
 - [x] Rebalance the match UI into a fixed-height table view with a dominant market area and compact side rails for secondary information.
+- [x] Simplify the match DOM by removing repeated local-player summaries and making the bank tokens double as the take-different-gems interaction.
 
 ## Notes On Card Data
 

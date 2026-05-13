@@ -1116,7 +1116,6 @@ const App: React.FC = () => {
     () => gameState?.players.find((player) => player.id === localPlayerId) ?? null,
     [gameState, localPlayerId]
   );
-  const localTokenCount = localGamePlayer ? totalTokens(localGamePlayer.tokens) : 0;
   const canLeaveRoom = !!currentRoom && !!localRoomPlayer && !localRoomPlayer.isHost && currentRoom.status !== 'in_game';
   const canCloseRoom = !!currentRoom && !!localRoomPlayer?.isHost;
   const pendingNobleClaim = gameState?.pendingNobleClaim ?? null;
@@ -1758,16 +1757,23 @@ const App: React.FC = () => {
               </div>
 
               <div className="game-view-frame game-table-overview" key="overview">
-                  <div className="board-grid">
-                <div className="summary-card bank-card">
+                <section className="table-zone bank-zone">
                   <h3>{copy.bankTitle}</h3>
                   <div className="token-grid">
                     {BONUS_COLORS.map((color) => (
-                      <div className={`token-chip token-chip-${color}`} key={color}>
+                      <button
+                        className={`token-chip token-chip-${color}${
+                          selectedDistinctColorSet.has(color) ? ' selected' : ''
+                        }`}
+                        key={color}
+                        disabled={!isLocalPlayersTurn || (gameState?.gemSupply[color] ?? 0) <= 0}
+                        onClick={() => toggleDistinctColor(color)}
+                        type="button"
+                      >
                         <span className={`gem-orb gem-orb-${color}`} />
                         <span>{tokenLabels[color]}</span>
                         <strong>{gameState.gemSupply[color]}</strong>
-                      </div>
+                      </button>
                     ))}
                     <div className="token-chip token-chip-gold">
                       <span className="gem-orb gem-orb-gold" />
@@ -1775,67 +1781,31 @@ const App: React.FC = () => {
                       <strong>{gameState.gemSupply.gold}</strong>
                     </div>
                   </div>
-                </div>
-
-                {localGamePlayer && (
-                  <div className="summary-card local-tableau-card">
-                    <h3>{copy.yourTableauTitle}</h3>
-                    <div className="market-stats">
-                      <div>
-                        <span>{copy.prestige}</span>
-                        <strong>{localGamePlayer.points}</strong>
-                      </div>
-                      <div>
-                        <span>{copy.totalTokens}</span>
-                        <strong>{localTokenCount}</strong>
-                      </div>
-                      <div>
-                        <span>{copy.bonuses}</span>
-                        <strong>{BONUS_COLORS.map((color) => localGamePlayer.bonuses[color]).join(' / ')}</strong>
-                      </div>
-                      <div>
-                        <span>{copy.nobles}</span>
-                        <strong>{localGamePlayer.nobles.length}</strong>
-                      </div>
-                    </div>
-                      <div className="token-grid token-grid-player">
-                        {BONUS_COLORS.map((color) => (
-                        <div className={`token-chip token-chip-${color}`} key={`player-${color}`}>
-                          <span className={`gem-orb gem-orb-${color}`} />
-                          <span>{tokenLabels[color]}</span>
-                          <strong>
-                            {localGamePlayer.tokens[color]} {copy.tokenUnit} | {localGamePlayer.bonuses[color]}{' '}
-                            {copy.bonusUnit}
-                          </strong>
-                        </div>
-                      ))}
-                      <div className="token-chip token-chip-gold">
-                        <span className="gem-orb gem-orb-gold" />
-                        <span>{copy.gold}</span>
-                        <strong>{localGamePlayer.tokens.gold}</strong>
-                      </div>
-                    </div>
+                  <div className="distinct-token-actions compact-token-actions">
+                    <span>{copy.selectedDifferentGems(selectedDistinctColors.length)}</span>
+                    <button disabled={!canSubmitDistinctTake} onClick={submitDistinctTake}>
+                      {copy.submitDifferentGems(selectedDistinctColors.length)}
+                    </button>
                   </div>
-                )}
-              </div>
+                </section>
 
-              <div className="summary-card noble-gallery-card">
-                <h3>{copy.nobles}</h3>
-                <div className="noble-gallery">
-                  {gameState.nobles.map((noble) => (
-                    <div className="noble-tile" key={noble.id}>
-                      <div>
-                        <strong>{noble.points}</strong>
-                        <span>{copy.prestige}</span>
+                <section className="table-zone noble-gallery-card">
+                  <h3>{copy.nobles}</h3>
+                  <div className="noble-gallery">
+                    {gameState.nobles.map((noble) => (
+                      <div className="noble-tile" key={noble.id}>
+                        <div>
+                          <strong>{noble.points}</strong>
+                          <span>{copy.prestige}</span>
+                        </div>
+                        <p>{noble.id}</p>
+                        <small>
+                          {copy.nobleRequirement}: {formatNobleRequirement(noble, tokenLabels)}
+                        </small>
                       </div>
-                      <p>{noble.id}</p>
-                      <small>
-                        {copy.nobleRequirement}: {formatNobleRequirement(noble, tokenLabels)}
-                      </small>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                    ))}
+                  </div>
+                </section>
 
               {pendingNobleClaim && (
                 <div className="summary-card noble-choice-panel">
@@ -1929,47 +1899,8 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <div className="summary-card action-panel-card">
+              <section className="table-zone action-panel-card">
                 <h3>{copy.actionPanelTitle}</h3>
-                <p>{copy.actionPanelDescription}</p>
-                <div className="distinct-token-picker">
-                  <div>
-                    <strong>{copy.takeDifferentTitle}</strong>
-                    <p>{copy.takeDifferentDescription}</p>
-                  </div>
-                  <div className="gem-select-grid">
-                    {BONUS_COLORS.map((color) => {
-                      const selected = selectedDistinctColorSet.has(color);
-                      const unavailable = (gameState?.gemSupply[color] ?? 0) <= 0;
-                      return (
-                        <button
-                          className={`gem-select-button bonus-${color}${selected ? ' selected' : ''}`}
-                          key={`distinct-${color}`}
-                          disabled={!isLocalPlayersTurn || unavailable || (!selected && selectedDistinctColors.length >= 3)}
-                          onClick={() => toggleDistinctColor(color)}
-                        >
-                          <span>{tokenLabels[color]}</span>
-                          <strong>{gameState?.gemSupply[color] ?? 0}</strong>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="distinct-token-actions">
-                    <span>{copy.selectedDifferentGems(selectedDistinctColors.length)}</span>
-                    <div className="card-actions">
-                      <button
-                        className="secondary"
-                        disabled={selectedDistinctColors.length === 0}
-                        onClick={() => setSelectedDistinctColors([])}
-                      >
-                        {copy.clearSelection}
-                      </button>
-                      <button disabled={!canSubmitDistinctTake} onClick={submitDistinctTake}>
-                        {copy.submitDifferentGems(selectedDistinctColors.length)}
-                      </button>
-                    </div>
-                  </div>
-                </div>
                 <div className="action-grid">
                   {BONUS_COLORS.map((color) => (
                     <button
@@ -2013,12 +1944,11 @@ const App: React.FC = () => {
                     </button>
                   ))}
                 </div>
-                <p className="helper-note">{copy.hiddenReserveNote}</p>
-                  </div>
-                </div>
+              </section>
+              </div>
 
                 <div className="game-view-frame game-table-market" key="market">
-                  <div className="summary-card market-card">
+                  <section className="table-zone market-card">
                 <h3>{copy.marketTitle}</h3>
                 <div className="market-columns">
                   {(['level1', 'level2', 'level3'] as const).map((levelKey, index) => (
@@ -2038,10 +1968,10 @@ const App: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
 
               {localGamePlayer && (
-                <div className="summary-card reserved-card-panel">
+                <section className="table-zone reserved-card-panel">
                   <h3>{copy.reservedCardsTitle}</h3>
                   {localGamePlayer.reservedCards.length > 0 ? (
                     <div className="card-grid">
@@ -2052,7 +1982,7 @@ const App: React.FC = () => {
                   ) : (
                     <p>{copy.noReservedCards}</p>
                   )}
-                  </div>
+                  </section>
                 )}
                 </div>
 
