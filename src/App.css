@@ -2267,7 +2267,7 @@ button.danger:hover:not(:disabled) {
   max-height: 76px;
 }
 
-/* Board-first layout: only board objects participate in the main grid. */
+/* Full-window table pass: keep the wrapper in DOM, but remove it from layout. */
 .app-shell-game {
   padding: 0;
   gap: 0;
@@ -2278,16 +2278,16 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game {
-  max-width: none;
   width: 100vw;
+  max-width: none;
   height: 100vh;
 }
 
 .workspace-in-game .panel-primary {
   position: relative;
-  place-items: center;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -2296,10 +2296,10 @@ button.danger:hover:not(:disabled) {
 
 .workspace-in-game .notice {
   position: absolute;
-  z-index: 20;
-  top: 10px;
+  z-index: 30;
+  top: 12px;
   left: 50%;
-  width: min(520px, calc(100vw - 380px));
+  width: min(520px, calc(100vw - 420px));
   margin: 0;
   transform: translateX(-50%);
   pointer-events: none;
@@ -2307,11 +2307,11 @@ button.danger:hover:not(:disabled) {
 
 .workspace-in-game .floating-dock {
   position: absolute;
-  z-index: 24;
-  top: 10px;
-  left: 12px;
+  z-index: 34;
+  top: 14px;
+  left: 16px;
   display: grid;
-  width: min(310px, calc(100vw - 24px));
+  width: min(310px, calc(100vw - 32px));
   margin: 0;
   padding: 0;
   border: 0;
@@ -2325,12 +2325,12 @@ button.danger:hover:not(:disabled) {
   gap: 8px;
   align-items: center;
   min-width: 0;
-  padding: 7px 10px;
-  border: 1px solid rgba(232, 215, 179, 0.22);
+  padding: 8px 12px;
+  border: 1px solid rgba(232, 215, 179, 0.24);
   border-radius: 999px;
   background: rgba(20, 40, 31, 0.82);
   color: var(--surface-paper);
-  box-shadow: 0 10px 30px rgba(3, 14, 8, 0.22);
+  box-shadow: 0 12px 32px rgba(3, 14, 8, 0.24);
 }
 
 .workspace-in-game .dock-toggle strong,
@@ -2347,41 +2347,30 @@ button.danger:hover:not(:disabled) {
   padding: 10px;
   border: 1px solid rgba(232, 215, 179, 0.18);
   border-radius: 14px;
-  background: rgba(255, 252, 241, 0.94);
+  background: rgba(255, 252, 241, 0.95);
   color: var(--ink-strong);
-  box-shadow: 0 16px 42px rgba(3, 14, 8, 0.2);
+  box-shadow: 0 18px 44px rgba(3, 14, 8, 0.24);
 }
 
 .workspace-in-game .game-shell {
-  width: min(1360px, calc(100vw - 56px));
-  height: min(820px, calc(100vh - 64px));
-  margin: 0;
-  display: grid;
-  grid-template-columns: clamp(168px, 14vw, 210px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-areas: "overview market";
-  gap: 10px;
-  padding: 10px;
-  border-width: 7px;
-  border-radius: 26px;
-  overflow: hidden;
+  display: contents;
 }
 
 .workspace-in-game .game-shell > .section-heading {
   position: absolute;
-  z-index: 21;
-  top: 10px;
+  z-index: 31;
+  top: 14px;
   left: 50%;
   display: inline-flex;
   width: auto;
-  max-width: min(520px, calc(100vw - 650px));
+  max-width: min(560px, calc(100vw - 700px));
   min-height: 0;
-  padding: 6px 10px;
-  border: 1px solid rgba(232, 215, 179, 0.2);
+  padding: 6px 12px;
+  border: 1px solid rgba(232, 215, 179, 0.22);
   border-radius: 999px;
-  background: rgba(20, 40, 31, 0.76);
+  background: rgba(20, 40, 31, 0.78);
   transform: translateX(-50%);
-  box-shadow: 0 10px 28px rgba(3, 14, 8, 0.18);
+  box-shadow: 0 10px 28px rgba(3, 14, 8, 0.2);
 }
 
 .workspace-in-game .game-shell > .section-heading h2 {
@@ -2389,41 +2378,67 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .game-shell > .section-heading p {
-  font-size: 0.74rem;
+  margin: 0;
+  font-size: 0.76rem;
   white-space: nowrap;
+  color: var(--surface-paper);
+}
+
+.workspace-in-game .final-summary-card {
+  position: absolute;
+  z-index: 35;
+  top: 88px;
+  left: 50%;
+  width: min(760px, calc(100vw - 120px));
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+  transform: translateX(-50%);
+  box-shadow: 0 24px 60px rgba(3, 14, 8, 0.28);
+}
+
+.workspace-in-game .game-view-switcher {
+  display: none;
 }
 
 .workspace-in-game .game-table-overview {
-  grid-area: overview;
+  position: absolute;
+  z-index: 12;
+  left: 18px;
+  top: 94px;
+  bottom: 78px;
+  width: clamp(176px, 15.5vw, 214px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 7px;
-  overflow: hidden;
+  gap: 10px;
   padding: 0;
 }
 
 .workspace-in-game .table-zone {
-  padding: 7px;
-  border-radius: 14px;
+  padding: 8px;
+  border-radius: 16px;
 }
 
 .workspace-in-game .table-zone h3 {
-  margin-bottom: 5px;
-  font-size: 0.82rem;
+  margin-bottom: 6px;
+  font-size: 0.84rem;
+}
+
+.workspace-in-game .bank-zone {
+  align-self: start;
 }
 
 .workspace-in-game .token-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
+  gap: 6px;
 }
 
 .workspace-in-game .token-chip {
-  min-height: 54px;
-  padding: 5px;
+  min-height: 56px;
+  padding: 6px;
 }
 
 .workspace-in-game .token-chip-with-actions {
-  grid-template-columns: minmax(0, 1fr) 26px;
+  grid-template-columns: minmax(0, 1fr) 27px;
 }
 
 .workspace-in-game .gem-orb {
@@ -2431,17 +2446,24 @@ button.danger:hover:not(:disabled) {
   height: 24px;
 }
 
+.workspace-in-game .compact-token-actions {
+  margin-top: 8px;
+}
+
+.workspace-in-game .noble-gallery-card {
+  min-height: 0;
+  overflow: auto;
+}
+
 .workspace-in-game .noble-gallery {
-  height: 100%;
   grid-template-columns: 1fr;
+  gap: 8px;
   align-content: start;
-  gap: 6px;
-  overflow: hidden;
 }
 
 .workspace-in-game .noble-tile {
   min-height: 0;
-  padding: 7px;
+  padding: 8px;
 }
 
 .workspace-in-game .noble-tile small {
@@ -2449,10 +2471,15 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .game-table-market {
-  grid-area: market;
+  position: absolute;
+  z-index: 10;
+  left: calc(clamp(176px, 15.5vw, 214px) + 34px);
+  top: 88px;
+  right: 22px;
+  bottom: 72px;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 68px);
-  gap: 8px;
+  grid-template-rows: minmax(0, 1fr) 66px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -2460,44 +2487,85 @@ button.danger:hover:not(:disabled) {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 30%),
+    rgba(255, 252, 241, 0.9);
 }
 
 .workspace-in-game .market-columns {
   height: 100%;
   grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .workspace-in-game .market-columns > div {
-  grid-template-columns: 60px minmax(0, 1fr);
-  padding: 7px;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(20, 49, 36, 0.06);
+}
+
+.workspace-in-game .market-columns .section-heading {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  margin: 0;
+  padding-right: 0;
+  border-right: 0;
+}
+
+.workspace-in-game .market-columns .section-heading h3 {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.workspace-in-game .market-columns .section-heading p {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.15;
+}
+
+.workspace-in-game .deck-reserve-button {
+  min-height: 24px;
+  min-width: 0;
+  padding: 3px 5px;
+  border-radius: 9px;
+  font-size: 0.62rem;
 }
 
 .workspace-in-game .market-card .card-grid {
-  display: grid;
-  grid-template-columns: repeat(4, var(--market-card-width));
-  gap: var(--market-card-gap);
-  justify-content: start;
+  display: flex;
   align-items: stretch;
+  gap: clamp(10px, 0.9vw, 16px);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
-  --market-card-width: clamp(126px, 10.4vw, 150px);
-  --market-card-gap: clamp(12px, 1vw, 18px);
+}
+
+.workspace-in-game .market-card .card-grid > .development-card {
+  flex: 0 0 auto;
+  width: auto;
+  height: 100%;
+  aspect-ratio: 0.72 / 1;
 }
 
 .workspace-in-game .development-card {
-  width: 100%;
-  height: auto;
-  max-height: 100%;
-  aspect-ratio: 0.72 / 1;
-  align-self: center;
+  min-width: 0;
   min-height: 0;
-  padding: 7px;
-  border-radius: 13px;
+  padding: 8px;
+  border-radius: 14px;
 }
 
 .workspace-in-game .development-card-body {
   grid-template-rows: minmax(28px, 1fr) auto auto;
   gap: 4px;
+  margin: 4px 0;
 }
 
 .workspace-in-game .card-art-mark {
@@ -2505,7 +2573,6 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .reserved-card-panel {
-  max-height: none;
   min-height: 0;
   overflow: hidden;
 }
@@ -2517,32 +2584,41 @@ button.danger:hover:not(:disabled) {
 
 .workspace-in-game .reserved-card-panel .card-grid {
   display: flex;
-  gap: 6px;
+  align-items: stretch;
+  gap: 8px;
   height: 100%;
   overflow: hidden;
 }
 
 .workspace-in-game .reserved-card-panel .development-card {
-  width: 52px;
-  min-width: 52px;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  aspect-ratio: 0.72 / 1;
   padding: 4px;
+}
+
+.workspace-in-game .reserved-card-panel .card-art-mark,
+.workspace-in-game .reserved-card-panel .card-pay-state {
+  display: none;
 }
 
 .workspace-in-game .players-dock-toggle {
   position: absolute;
-  z-index: 24;
-  top: 10px;
-  right: 12px;
+  z-index: 34;
+  top: 14px;
+  right: 18px;
   display: grid;
   grid-template-columns: auto auto;
   gap: 8px;
   align-items: center;
-  padding: 7px 10px;
-  border: 1px solid rgba(232, 215, 179, 0.22);
+  padding: 8px 12px;
+  border: 1px solid rgba(232, 215, 179, 0.24);
   border-radius: 999px;
   background: rgba(20, 40, 31, 0.82);
   color: var(--surface-paper);
-  box-shadow: 0 10px 30px rgba(3, 14, 8, 0.22);
+  box-shadow: 0 12px 32px rgba(3, 14, 8, 0.24);
 }
 
 .workspace-in-game .players-dock-toggle strong {
@@ -2554,11 +2630,11 @@ button.danger:hover:not(:disabled) {
 
 .workspace-in-game .floating-players {
   position: absolute;
-  z-index: 23;
-  top: 54px;
-  right: 12px;
-  width: min(360px, calc(100vw - 24px));
-  max-height: calc(100vh - 76px);
+  z-index: 33;
+  top: 58px;
+  right: 18px;
+  width: min(360px, calc(100vw - 36px));
+  max-height: calc(100vh - 92px);
   opacity: 0;
   pointer-events: none;
   transform: translateX(calc(100% + 18px));
@@ -2574,30 +2650,91 @@ button.danger:hover:not(:disabled) {
 }
 
 .workspace-in-game .players-card {
-  max-height: calc(100vh - 76px);
+  max-height: calc(100vh - 92px);
   overflow: auto;
-  background: rgba(255, 252, 241, 0.94);
+  background: rgba(255, 252, 241, 0.95);
   box-shadow: 0 18px 54px rgba(3, 14, 8, 0.26);
 }
 
 .workspace-in-game .game-table-log {
   position: absolute;
   z-index: 18;
-  right: max(24px, calc((100vw - min(1360px, calc(100vw - 56px))) / 2 + 18px));
-  bottom: max(24px, calc((100vh - min(820px, calc(100vh - 64px))) / 2 + 16px));
-  left: max(250px, calc((100vw - min(1360px, calc(100vw - 56px))) / 2 + 238px));
-  height: 46px;
+  left: calc(clamp(176px, 15.5vw, 214px) + 34px);
+  right: 22px;
+  bottom: 20px;
+  height: 44px;
   min-height: 0;
   overflow: hidden;
   pointer-events: none;
 }
 
 .workspace-in-game .event-strip .log-list {
-  grid-auto-columns: minmax(170px, 1fr);
+  grid-auto-columns: minmax(180px, 1fr);
 }
 
 .workspace-in-game .event-strip .log-entry {
   padding: 6px;
+}
+
+@media (max-width: 960px) {
+  .workspace-in-game .panel-primary {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+    overflow: auto;
+  }
+
+  .workspace-in-game .notice,
+  .workspace-in-game .floating-dock,
+  .workspace-in-game .game-shell > .section-heading,
+  .workspace-in-game .final-summary-card,
+  .workspace-in-game .floating-players,
+  .workspace-in-game .game-table-log {
+    position: static;
+    width: auto;
+    max-height: none;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .workspace-in-game .players-dock-toggle {
+    display: none;
+  }
+
+  .workspace-in-game .game-shell {
+    display: grid;
+    gap: 10px;
+  }
+
+  .workspace-in-game .game-table-overview,
+  .workspace-in-game .game-table-market {
+    position: static;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+    width: auto;
+  }
+
+  .workspace-in-game .game-table-overview,
+  .workspace-in-game .game-table-market,
+  .workspace-in-game .floating-players {
+    display: grid;
+  }
+
+  .workspace-in-game .market-card .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: auto;
+    overflow: auto;
+  }
+
+  .workspace-in-game .market-card .card-grid > .development-card,
+  .workspace-in-game .reserved-card-panel .development-card {
+    width: 100%;
+    height: auto;
+  }
 }
 
 @media (max-width: 1080px) {
